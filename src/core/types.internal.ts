@@ -27,3 +27,17 @@ export interface PhotoObservation {
   evidence: string[];
 }
 export interface PhotoObservationResult { schema_version: 1; observations: PhotoObservation[] }
+export interface RiskAssessment {
+  score: number | null;
+  level: "low" | "medium" | "high" | "insufficient";
+  calibrated: false;
+  explanation: string;
+}
+export interface FinalReport {
+  status: "success";
+  risk: RiskAssessment;
+  observations: PhotoObservation[];
+  evidence: EvidenceResult;
+  limitations: string[];
+  rentalMode: "whole" | "shared" | "unknown";
+}

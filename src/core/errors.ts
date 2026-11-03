@@ -16,6 +16,7 @@ const MESSAGES = Object.freeze({
   CANCELLED: "图片处理已取消",
   KEY_REQUIRED: "真实模式需要本次使用的模型密钥",
   ADAPTER_UNAVAILABLE: "当前模式的模块尚未接入",
+  INVALID_REPORT_INPUT: "报告输入不符合接口或安全要求",
   UNKNOWN_ERROR: "处理失败，请重试或更换照片",
 });
 export type CoreErrorCode = keyof typeof MESSAGES;
