@@ -17,6 +17,10 @@ const MESSAGES = Object.freeze({
   KEY_REQUIRED: "真实模式需要本次使用的模型密钥",
   ADAPTER_UNAVAILABLE: "当前模式的模块尚未接入",
   INVALID_REPORT_INPUT: "报告输入不符合接口或安全要求",
+  INVALID_ANALYSIS_INPUT: "分析输入不符合接口或安全要求",
+  INVALID_PREPARED_PHOTOS: "预处理照片不符合交接要求",
+  TIMEOUT: "分析任务超过时间限制",
+  MOCK_FAILURE: "演示适配器模拟失败",
   UNKNOWN_ERROR: "处理失败，请重试或更换照片",
 });
 export type CoreErrorCode = keyof typeof MESSAGES;

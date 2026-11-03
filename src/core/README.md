@@ -1,6 +1,6 @@
-# D1 图片预处理与 D2 确定性报告
+# D1 图片预处理、D2 报告与 D3 调度
 
-已实现 D1 和 D2，不包含 runAnalysis、状态调度、模型调用或导出。唯一规范为根目录 docs/interfaces.md。本目录之外的项目配置、A 的 src/contracts/ 和 B/C 实现均未创建或修改。D2 的门槛、权重、阈值和边界见 [报告规则](report-rules.md)。
+已实现 D1、D2 和 D3，无真实模型调用或导出。唯一规范为根目录 docs/interfaces.md。本目录之外的项目配置、A 的 src/contracts/ 和 B/C 实现均未创建或修改。D2 规则见 [报告规则](report-rules.md)，runAnalysis、Mock、取消与超时见 [调度说明](orchestration.md)。
 
 ## 函数与接入
 
@@ -29,7 +29,7 @@ import { selectPorts, createPhotoInput } from "./ports.ts";
 const ports = selectPorts("mock", { mock: mockPorts });
 const cInput = createPhotoInput(prepared, "mock", "", controller.signal);
 // mock 选择不读取 real 端口，cInput.apiKey 始终为空。
-// D2 只提供纯报告合成；后续 D3 才负责调用端口与流程调度。
+// D2 提供纯报告合成；D3 已负责调用端口与流程调度。
 ```
 
 types.internal.ts 是 D 私有过渡类型，字段复制自规范；不代表正式公共契约。A 初始化公共类型后，应替换这些导入，不在 B/C/E 复制另一份类型。
@@ -87,13 +87,14 @@ Key 不得写入 localStorage、sessionStorage、IndexedDB、URL、console、报
 无需安装依赖或根目录工程，使用 Node 24 原生 TypeScript 类型擦除和 node:test：
 
 ```powershell
-node --test src/core/preprocess.test.mjs src/core/security.test.mjs src/core/report.test.mjs
+node --test src/core/preprocess.test.mjs src/core/security.test.mjs src/core/report.test.mjs src/core/orchestrator.test.mjs
 ```
 
 Node 的类型擦除不进行类型检查。可独立运行下列只读检查（npm exec 的工具位于 npm 缓存，不创建本项目 package.json/node_modules）：
 
 ```powershell
-npm.cmd exec --yes --package typescript@7.0.2 -- tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --allowImportingTsExtensions src/core/errors.ts src/core/security.ts src/core/ports.ts src/core/preprocess.ts src/core/image-header.ts src/core/types.internal.ts src/core/report-rules.ts src/core/report-validation.ts src/core/report.ts
+$sources = @(Get-ChildItem -LiteralPath src/core -Filter *.ts -File | ForEach-Object { $_.FullName }) + @(Get-ChildItem -LiteralPath src/core/adapters -Filter *.ts -File | ForEach-Object { $_.FullName })
+npm.cmd exec --yes --package typescript@7.0.2 -- tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --allowImportingTsExtensions @sources
 ```
 
 test-fixtures.mjs 是一次性生成的 4×2 JPEG/PNG/WebP 合成小图和带测试 EXIF 的 JPEG，无真实用户数据；生成器使用环境自带 Pillow，不是运行或测试依赖。test-browser.mjs 中的替身只模拟位图尺寸、Canvas 输出和释放行为，不实际解码输入或渲染像素。Node 测试通过不能代表浏览器图片解码、压缩质量、EXIF/GPS 清理或内存回收已实测通过。
@@ -102,8 +103,10 @@ test-fixtures.mjs 是一次性生成的 4×2 JPEG/PNG/WebP 合成小图和带测
 
 D2 完成后全量复测：D1 37 项 + D2 52 项，共 89 项通过、0 失败、0 跳过；包含 report 源码的 TypeScript 7.0.2 strict/noEmit 检查通过。D2 测试为离线纯规则与运行时校验测试，不代表进行了真实来源或住房风险核验。
 
+D3 完成后全量复测：D1+D2 89 项 + D3 43 项，共 132 项通过、0 失败、0 跳过；全部源码（含 adapters）TypeScript 7.0.2 strict/noEmit 检查通过。D3 使用手动时钟和 Node 浏览器替身，无真实模型/网络/浏览器测试。
+
 真实浏览器待验证：Chrome/Edge/Firefox/Safari 和移动端的 createImageBitmap/Canvas 编码支持，EXIF 八种方向、透明 WebP/PNG、色彩与位深、输出副本元数据实查、大图峰值内存、页面取消响应，以及静态 HTTPS 环境下 crypto.randomUUID。缺少 createImageBitmap、可用 Canvas 或 randomUUID 时返回 BROWSER_UNSUPPORTED；不采用会联网的降级方案。
 
 ## A 初始化工程后的接入
 
-将本目录的临时类型改为 A 公共 contracts 导入；把单元测试接入团队统一脚本，并处理 .ts 导入后缀与正式 TypeScript/Vite 配置。保持测试专用 .mjs helper 不进入生产入口。再由 F 加入真实浏览器用例。D3 才接入 B/C 的真实导入路径、runAnalysis、超时/重试；本次未实现这些内容。
+将本目录的临时类型改为 A 公共 contracts 导入；把单元测试接入团队统一脚本，并处理 .ts 导入后缀与正式 TypeScript/Vite 配置。保持测试专用 .mjs helper 不进入生产入口。再由 F 加入真实浏览器用例。D3 默认 runAnalysis 只接 D 自有 Mock，A 后续通过 createAnalysisRunner 注入 B/C real 端口，E 继续消费相同三参数入口。D4 导出尚未实现。

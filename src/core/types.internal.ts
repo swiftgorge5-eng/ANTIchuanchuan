@@ -41,3 +41,12 @@ export interface FinalReport {
   limitations: string[];
   rentalMode: "whole" | "shared" | "unknown";
 }
+export interface AnalysisInput {
+  photos: File[];
+  apiKey: string;
+  provider: "gemini";
+  location?: LocationQuery;
+  rentalMode?: "whole" | "shared" | "unknown";
+  mode: "mock" | "real";
+}
+export type AnalysisStage = "idle" | "preparing" | "observing" | "retrieving" | "composing" | "success" | "error" | "cancelled";
