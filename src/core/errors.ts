@@ -21,6 +21,8 @@ const MESSAGES = Object.freeze({
   INVALID_PREPARED_PHOTOS: "预处理照片不符合交接要求",
   TIMEOUT: "分析任务超过时间限制",
   MOCK_FAILURE: "演示适配器模拟失败",
+  DOWNLOAD_UNAVAILABLE: "当前环境不支持报告下载",
+  DOWNLOAD_FAILED: "报告下载未能完成，请重试",
   UNKNOWN_ERROR: "处理失败，请重试或更换照片",
 });
 export type CoreErrorCode = keyof typeof MESSAGES;

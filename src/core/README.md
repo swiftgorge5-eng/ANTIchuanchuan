@@ -1,6 +1,6 @@
-# D1 图片预处理、D2 报告与 D3 调度
+# D1–D4 浏览器核心模块
 
-已实现 D1、D2 和 D3，无真实模型调用或导出。唯一规范为根目录 docs/interfaces.md。本目录之外的项目配置、A 的 src/contracts/ 和 B/C 实现均未创建或修改。D2 规则见 [报告规则](report-rules.md)，runAnalysis、Mock、取消与超时见 [调度说明](orchestration.md)。
+已实现 D1、D2、D3 和 D4，无真实模型调用。唯一规范为根目录 docs/interfaces.md。本目录之外的项目配置、A 的 src/contracts/ 和 B/C 实现均未创建或修改。D2 规则见 [报告规则](report-rules.md)，调度见 [调度说明](orchestration.md)，统一入口、JSON 导出和 A/B/C/E 接入见 [交付说明](integration.md)。
 
 ## 函数与接入
 
@@ -42,6 +42,12 @@ const report = composeReport(photoResult, evidenceResult, "unknown");
 ```
 
 同步纯函数，按运行时严格校验 B/C 输出，仅返回规范 FinalReport。无效结构通过 toSafeError 输出 INVALID_REPORT_INPUT；信息不足返回 score=null、level=insufficient。权重和阈值集中在 report-rules.ts，任何分数均为未校准的规则符合度，不是真实概率。函数不请求来源 URL、不调用模型，也不声称独立核验网页。
+
+## 统一入口与 JSON 导出
+
+E 从 src/core/index.ts 导入 runAnalysis、toSafeError、serializeReport、createReportBlob、downloadReport。内部工厂与 Mock 仍从对应内部模块导入，不通过生产 barrel 暴露测试辅助文件。
+
+serializeReport 严格校验并只输出规范 FinalReport；createReportBlob 返回 UTF-8 JSON Blob；downloadReport 只在用户点击下载时显式调用，使用固定文件名和短期 Blob URL。不得在分析完成后自动下载。报告可能保留用户地点输入，不应声称完全匿名；下载前由 E 告知隐私属性。见 integration.md 的完整示例与限制。
 
 ## 默认规则
 
@@ -87,7 +93,7 @@ Key 不得写入 localStorage、sessionStorage、IndexedDB、URL、console、报
 无需安装依赖或根目录工程，使用 Node 24 原生 TypeScript 类型擦除和 node:test：
 
 ```powershell
-node --test src/core/preprocess.test.mjs src/core/security.test.mjs src/core/report.test.mjs src/core/orchestrator.test.mjs
+node --test src/core/*.test.mjs
 ```
 
 Node 的类型擦除不进行类型检查。可独立运行下列只读检查（npm exec 的工具位于 npm 缓存，不创建本项目 package.json/node_modules）：
@@ -105,8 +111,10 @@ D2 完成后全量复测：D1 37 项 + D2 52 项，共 89 项通过、0 失败�
 
 D3 完成后全量复测：D1+D2 89 项 + D3 43 项，共 132 项通过、0 失败、0 跳过；全部源码（含 adapters）TypeScript 7.0.2 strict/noEmit 检查通过。D3 使用手动时钟和 Node 浏览器替身，无真实模型/网络/浏览器测试。
 
+D4 完成后全量复测：既有 132 项 + D4/核心集成 41 项，共 173 项通过、0 失败、0 跳过；全部 15 个生产 TypeScript 文件 strict/noEmit 检查通过。JSON 往返、UTF-8 Blob、固定文件名及 URL 回收均为 Node/DOM 替身验证，真实浏览器下载仍待联调；未执行不存在的根目录网页构建。
+
 真实浏览器待验证：Chrome/Edge/Firefox/Safari 和移动端的 createImageBitmap/Canvas 编码支持，EXIF 八种方向、透明 WebP/PNG、色彩与位深、输出副本元数据实查、大图峰值内存、页面取消响应，以及静态 HTTPS 环境下 crypto.randomUUID。缺少 createImageBitmap、可用 Canvas 或 randomUUID 时返回 BROWSER_UNSUPPORTED；不采用会联网的降级方案。
 
 ## A 初始化工程后的接入
 
-将本目录的临时类型改为 A 公共 contracts 导入；把单元测试接入团队统一脚本，并处理 .ts 导入后缀与正式 TypeScript/Vite 配置。保持测试专用 .mjs helper 不进入生产入口。再由 F 加入真实浏览器用例。D3 默认 runAnalysis 只接 D 自有 Mock，A 后续通过 createAnalysisRunner 注入 B/C real 端口，E 继续消费相同三参数入口。D4 导出尚未实现。
+将本目录的临时类型改为 A 公共 contracts 导入；把单元测试接入团队统一脚本，并处理 .ts 导入后缀与正式 TypeScript/Vite 配置。保持测试专用 .mjs helper 不进入生产入口。再由 F 加入真实浏览器用例。默认 runAnalysis 只接 D 自有 Mock，A 后续通过 createAnalysisRunner 注入 B/C real 端口，E 继续消费相同三参数入口，并从统一入口调用 D4 导出。根目录工程尚不存在，不能宣称项目网页或构建已通过。

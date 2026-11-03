@@ -108,3 +108,6 @@ export function validateEvidence(value: unknown): EvidenceResult {
   if (status === "no_match" && items.length) invalidReport();
   return { status, query, items };
 }
+
+// Internal shared validators; not exported by the stable core entry.
+export { object as validateDataObject, array as validateDataArray };
