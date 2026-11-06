@@ -40,6 +40,13 @@ function safeExcerpt(text: string, max = 200): string {
   return text.replace(/<[^>]*>/g, " ").replace(/[<>\u0000-\u001f\u007f]/gu, " ")
     .replace(/\s+/g, " ").trim().slice(0, max);
 }
+function fullDate(record: HistoricalRecord): string | null {
+  // A month such as "2022-10" must not be fabricated into a precise day.
+  for (const value of [record.metadata.published_at, record.metadata.issued_at, record.metadata.record_date]) {
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  }
+  return null;
+}
 function evidenceItem(candidate: Candidate, certainty: "confirmed" | "possible", query: LocationQuery): EvidenceItem {
   const record = candidate.record;
   const meta = record.metadata;
@@ -57,7 +64,7 @@ function evidenceItem(candidate: Candidate, certainty: "confirmed" | "possible",
     title: "历史公开记录 " + meta.id + "｜" + meta.entity_name,
     publisher: safeExcerpt(meta.source_name, 120),
     url: meta.source_url,
-    date: meta.published_at || meta.issued_at || meta.record_date || null,
+    date: fullDate(record),
     summary, matchStatus: certainty,
   };
 }
