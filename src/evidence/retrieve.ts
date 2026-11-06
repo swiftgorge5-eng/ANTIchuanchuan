@@ -19,8 +19,11 @@ function district(value: string): string {
 function identityFor(record: HistoricalRecord, name: string): IdentityMatch {
   const meta = record.metadata;
   const canonical = [meta.entity_name, ...meta.entity_aliases].map(normalize);
-  if (canonical.includes(name)) return "exact";
-  if (meta.entity_members.some(member => normalize(member) === name)) return "related";
+  // Omitting a terminal "小区" is a limited name variant, not fuzzy identity.
+  const sameNamedSite = (item: string) => item === name ||
+    (item.endsWith("小区") && item.slice(0, -2) === name && name.length >= 3);
+  if (canonical.some(sameNamedSite)) return "exact";
+  if (meta.entity_members.map(normalize).some(sameNamedSite)) return "related";
   // Substring matches are candidates ONLY; never silently turn them into identity.
   if (name.length >= 3 && canonical.some(item => item.includes(name) || name.includes(item))) return "partial";
   return "none";
@@ -37,7 +40,7 @@ function safeExcerpt(text: string, max = 200): string {
   return text.replace(/<[^>]*>/g, " ").replace(/[<>\u0000-\u001f\u007f]/gu, " ")
     .replace(/\s+/g, " ").trim().slice(0, max);
 }
-function evidenceItem(candidate: Candidate, certainty: "confirmed" | "possible"): EvidenceItem {
+function evidenceItem(candidate: Candidate, certainty: "confirmed" | "possible", query: LocationQuery): EvidenceItem {
   const record = candidate.record;
   const meta = record.metadata;
   const summary = [
@@ -50,7 +53,7 @@ function evidenceItem(candidate: Candidate, certainty: "confirmed" | "possible")
     "当前现场状态未独立核验，不得推断特定楼栋或房间。"
   ].filter(Boolean).join(" ").slice(0, 980);
   return {
-    id: meta.id, communityName: meta.entity_name, sourceType: "public",
+    id: meta.id, communityName: certainty === "confirmed" ? (query.communityName || meta.entity_name) : meta.entity_name, sourceType: "public",
     title: "历史公开记录 " + meta.id + "｜" + meta.entity_name,
     publisher: safeExcerpt(meta.source_name, 120),
     url: meta.source_url,
@@ -113,7 +116,7 @@ export function createHistoricalRag(markdown: string): HistoricalRag {
     async retrieveEvidence(query) {
       const result = lookup(query);
       const items = result.unique.map(row => evidenceItem(row,
-        result.status === "matched" ? "confirmed" : "possible"));
+        result.status === "matched" ? "confirmed" : "possible", query));
       return { status: result.status, query: { ...query }, items };
     },
   };
