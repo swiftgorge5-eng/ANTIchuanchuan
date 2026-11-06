@@ -93,3 +93,10 @@ test("multiple lookup calls keep unique IDs and original user query", async () =
   assert.equal(result.query.city, "上海");
   assert.ok(result.items.some(item => item.id === "SH043"));
 });
+
+test("month-only dates are not fabricated into a complete ISO day", async () => {
+  const result = await query("上海", "浦东新区", "浦海、海二小区联合项目");
+  assert.equal(result.status, "matched");
+  assert.ok(result.items.some(item => item.id === "SH018" && item.date === null));
+  assert.deepEqual(validateEvidence(result), result);
+});
