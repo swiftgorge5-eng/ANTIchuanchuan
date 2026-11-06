@@ -10,13 +10,14 @@ import { createMockPorts } from "../core/adapters/mock.ts";
 import type { CorePorts } from "../core/ports.ts";
 
 const rag = createHistoricalRag(libraryText);
-const mockPhoto = createMockPorts();
+// Unknown observations are deliberate: real historical sources cannot validate fake photo facts.
+const mockPhoto = createMockPorts({ scenario: "unknown" });
 
 export const retrieveEvidence = rag.retrieveEvidence;
 export const getConfirmedRagContext = rag.getConfirmedRecords;
 export const ragRecordCount = rag.recordCount;
 
-/** Offline photo demonstration + real, cited historical evidence lookup. */
+/** Offline demo: real historical citations, but NO risk score from synthetic photos. */
 export const runAnalysisWithRag = createAnalysisRunner({
   mock: { observePhotos: mockPhoto.observePhotos, retrieveEvidence },
 });
