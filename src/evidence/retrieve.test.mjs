@@ -59,13 +59,13 @@ test("unknown community means lack of recorded source, not safety", async () => 
 });
 
 test("ambiguous substring cannot be promoted into identity", async () => {
-  const result = await query("上海", "普陀区", "金纺");
+  const result = await query("上海", "普陀区", "中远两湾");
   assert.equal(result.status, "ambiguous");
   assert.ok(result.items.every(row => row.matchStatus === "possible"));
 });
 
 test("joint-project members cannot inherit all of the joint project's issues", async () => {
-  const result = await query("上海", "杨浦区", "浦海小区");
+  const result = await query("上海", "浦东新区", "浦海小区");
   assert.equal(result.status, "ambiguous");
   assert.ok(result.items.every(row => row.matchStatus === "possible"));
 });
