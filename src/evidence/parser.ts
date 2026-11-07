@@ -54,15 +54,15 @@ export function parseHistoricalLibrary(markdown: string): HistoricalRecord[] {
   if (typeof markdown !== "string") throw new Error("RAG source must be Markdown text");
   const records: HistoricalRecord[] = [];
   const ids = new Set<string>();
-  for (const block of markdown.split(/(?=^## SH\d{3}｜)/m)) {
-    const match = /^## (SH\d{3})｜/m.exec(block);
+  for (const block of markdown.replace(/\r\n/g, "\n").split(/(?=^## SH\d{3,}｜)/m)) {
+    const match = /^## (SH\d{3,})｜/m.exec(block);
     if (!match || match.index !== 0) continue;
     const json = /^\x60{3}json[ \t]*\r?\n([\s\S]*?)\r?\n\x60{3}/m.exec(block);
     if (!json) throw new Error("RAG record has no JSON metadata");
     const value: unknown = JSON.parse(json[1]);
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid RAG metadata");
     const metadata = value as HistoricalMetadata;
-    if (metadata.id !== match[1] || !/^SH\d{3}$/.test(metadata.id)
+    if (metadata.id !== match[1]
         || ids.has(metadata.id) || !requiredString(metadata.city)
         || !requiredString(metadata.district) || !requiredString(metadata.entity_name)
         || !requiredString(metadata.scope) || !requiredString(metadata.source_name)
