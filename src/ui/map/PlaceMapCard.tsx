@@ -10,7 +10,7 @@ import {
   type AmapPlaceSearch,
   type AmapCircle,
 } from "./amap.ts";
-import { bestAccuracy, collectPosition, combineSamples, type PositionSample } from "./geolocate.ts";
+import { collectPosition, combineSamples, type PositionSample } from "./geolocate.ts";
 import { hasUsablePlace, resolvePlace, type PickedPlace, type ResidentialPoi } from "./reverse.ts";
 
 /** 上海市人民广场：没有历史输入时的初始视野。 */
@@ -45,25 +45,14 @@ function describePrecision(place: PickedPlace): string {
   return "只拿到门牌地址，未识别到小区";
 }
 
-/** 把定位来源和误差摊开说，避免"看着像在我家"就被当成准确。 */
-function describeLocate(info: { accuracy: number | null; kind: string; samples?: number }): string {
-  const source =
-    info.kind === "ip"
-      ? "IP 定位"
-      : info.kind === "html5"
-        ? "浏览器定位"
-        : info.kind === "sdk"
-          ? "高德定位"
-          : "定位来源未知";
-  const parts = [source];
-  if (info.samples && info.samples > 1) parts.push(`${info.samples} 次采样`);
-  if (info.accuracy !== null) parts.push(`误差约 ±${info.accuracy} 米`);
-  if (info.kind === "ip") {
-    parts.push("IP 定位只能到城市或区一级，不能用来确认小区，请手动拖准星");
-  } else if (info.accuracy !== null && info.accuracy >= 100) {
-    parts.push("误差偏大，多半是靠 WiFi 粗略定位，请拖准星核对");
+/** 结果只给一句结论 + 误差；采样细节留在内部，不打扰用户。 */
+function describeLocate(info: { accuracy: number | null }): string {
+  const parts = ["定位成功"];
+  parts.push(info.accuracy === null ? "误差未知" : `误差约 ±${info.accuracy} 米`);
+  if (info.accuracy !== null && info.accuracy >= 100) {
+    parts.push("偏差较大，请用准星或输入小区名核对");
   } else if (info.accuracy !== null && info.accuracy >= 30) {
-    parts.push("有几十米误差，请看蓝点是否落在目标小区内");
+    parts.push("请看蓝点是否落在目标小区内");
   }
   return parts.join(" · ");
 }
@@ -289,17 +278,11 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
 
     setLocating(true);
     setMessage("");
-    setLocateProgress("正在获取位置…");
+    // 只给一句静态提示：采样细节不暴露给用户，避免注意力被数字牵走。
+    setLocateProgress("正在搜索中…");
     try {
       // 多次采样：禁用缓存坐标，采 3 个样本后取加权的中心。
-      const { samples, errorCode } = await collectPosition({
-        maxSamples: 3,
-        maxWaitMs: 3_500,
-        onProgress: (rows) => {
-          const best = bestAccuracy(rows);
-          setLocateProgress(`正在获取位置… 已采样 ${rows.length}/3` + (best === null ? "" : `，当前最佳 ±${best} 米`));
-        },
-      }, controller.signal);
+      const { samples, errorCode } = await collectPosition({ maxSamples: 3, maxWaitMs: 3_500 }, controller.signal);
 
       if (samples.length === 0) {
         setMessage(
@@ -559,4 +542,5 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
     </section>
   );
 }
+
 
