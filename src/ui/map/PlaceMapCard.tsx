@@ -15,7 +15,8 @@ import { hasUsablePlace, resolvePlace, type PickedPlace, type ResidentialPoi } f
 
 /** 上海市人民广场：没有历史输入时的初始视野。 */
 const DEFAULT_CENTER: [number, number] = [121.4737, 31.2304];
-const MOVE_DEBOUNCE_MS = 260;
+/** 松手后等这么久再识别，避免惯性滑动或连续微调引发多次请求。 */
+const SETTLE_MS = 700;
 
 type Phase = "closed" | "opening" | "ready" | "resolving" | "failed" | "unconfigured";
 
@@ -78,6 +79,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
   const accuracyRef = useRef<AmapCircle | null>(null);
   const debounceRef = useRef(0);
   const locateAbortRef = useRef<AbortController | null>(null);
+  const resolveTokenRef = useRef(0);
 
   const [phase, setPhase] = useState<Phase>("closed");
   const [message, setMessage] = useState("");
@@ -87,13 +89,17 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
   const [locateProgress, setLocateProgress] = useState<string>("");
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [candidates, setCandidates] = useState<{ name: string; address: string; lng: number; lat: number }[]>([]);
 
   function resolveAt(lng: number, lat: number): void {
     const geocoder = geocoderRef.current;
     if (!geocoder) return;
+    // 每次识别带一个令牌：拖动或再次移动后，旧的异步结果直接丢弃，避免闪回。
+    const token = ++resolveTokenRef.current;
     setPhase("resolving");
     geocoder.getAddress([lng, lat], (status, result) => {
+      if (token !== resolveTokenRef.current) return;
       if (status !== "complete") {
         setPicked(null);
         setPhase("ready");
@@ -102,6 +108,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
       }
       // AOI 只说明点落在哪个面里，可能是商场；用住宅 POI 交叉验证后再定稿。
       searchResidentialPois([lng, lat], (residentialPois) => {
+        if (token !== resolveTokenRef.current) return;
         const place = resolvePlace(result.regeocode, residentialPois);
         setPicked(hasUsablePlace(place) ? place : null);
         setPhase("ready");
@@ -146,14 +153,24 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
     });
   }
 
+  /** 拖动/缩放开始：立刻停止识别，避免边拖边闪。 */
+  function onMapMoveStart(): void {
+    window.clearTimeout(debounceRef.current);
+    resolveTokenRef.current += 1;
+    setMoving(true);
+    setPhase("ready");
+  }
+
+  /** 松手后等一小会儿再识别一次，避免惯性滑动的中间帧被当成目标点。 */
   function onMapMoved(): void {
+    setMoving(false);
     window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => {
       const map = mapRef.current;
       if (!map) return;
       const center = map.getCenter();
       resolveAt(center.lng, center.lat);
-    }, MOVE_DEBOUNCE_MS);
+    }, SETTLE_MS);
   }
 
   function destroyMap(): void {
@@ -199,6 +216,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
       geocoderRef.current = geocoder;
       // 住宅 POI 用于交叉验证 AOI，并在 AOI 缺失时兜底。
       placeSearchRef.current = new namespace.PlaceSearch({ type: "住宅区", pageSize: 10, extensions: "base" });
+      map.on("movestart", onMapMoveStart);
       map.on("moveend", onMapMoved);
       setPhase("ready");
 
@@ -417,8 +435,6 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
     onApply(picked);
     closeMap();
   }
-
-  const busy = phase === "opening" || phase === "resolving";
   const summary = [value.city, value.district, value.communityName].filter(Boolean).join(" · ");
 
   return (
@@ -499,9 +515,8 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
             <div className="map-canvas-wrap">
               <div className="map-canvas" ref={canvasRef} />
               <div className="map-crosshair" aria-hidden="true"><span /></div>
-              {busy && (
-                <div className="map-veil">{phase === "opening" ? "正在加载地图…" : "正在识别这个点…"}</div>
-              )}
+              {phase === "opening" && <div className="map-veil">正在加载地图…</div>}
+              {moving && <div className="map-hint">松手后识别这个位置</div>}
             </div>
 
             <div className="map-result" aria-live="polite">
@@ -511,9 +526,16 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
                   <p className="note">{[picked.city, picked.district].filter(Boolean).join(" · ") || "行政区未知"}</p>
                   {picked.address && <p className="note">{picked.address}</p>}
                   <p className="note">识别方式：高德逆地理编码 · {describePrecision(picked)}</p>
+                  {moving && <p className="note">地图移动中，松手后会重新识别。</p>}
                 </>
               ) : (
-                <p className="note">{message || "把地图拖到目标小区，松手后会显示这里是什么地方。"}</p>
+                <p className="note">
+                  {moving
+                    ? "地图移动中，松手后会识别这个位置。"
+                    : phase === "resolving"
+                      ? "正在识别这个点…"
+                      : message || "把地图拖到目标小区，松手后会显示这里是什么地方。"}
+                </p>
               )}
               {picked && message && <p className="note">{message}</p>}
             </div>
@@ -537,3 +559,4 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
     </section>
   );
 }
+

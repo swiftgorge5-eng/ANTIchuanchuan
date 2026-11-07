@@ -14,7 +14,7 @@ export interface AmapLngLat {
 }
 
 export interface AmapMap {
-  on(event: "moveend" | "complete" | "click", handler: () => void): void;
+  on(event: "movestart" | "moveend" | "zoomstart" | "complete" | "click", handler: () => void): void;
   off(event: string, handler?: () => void): void;
   setCenter(position: [number, number]): void;
   setZoom(zoom: number): void;

@@ -294,3 +294,18 @@ fieldset:disabled { opacity: 0.65; }
 .map-candidates button:hover { border-color: var(--teal); }
 .map-candidates span { color: var(--muted); font-size: 0.8rem; }
 
+
+/* 拖动中提示：不遮住地图，只给一句轻提示 */
+.map-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0.8rem;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(20, 16, 12, 0.72);
+  color: #fff;
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+
