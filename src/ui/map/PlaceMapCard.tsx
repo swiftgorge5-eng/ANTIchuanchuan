@@ -4,13 +4,13 @@ import {
   isAmapConfigured,
   loadAmap,
   type AmapGeocoder,
-  type AmapGeolocation,
   type AmapMap,
   type AmapNamespace,
   type AmapMarker,
   type AmapPlaceSearch,
   type AmapCircle,
 } from "./amap.ts";
+import { bestAccuracy, collectPosition, combineSamples, type PositionSample } from "./geolocate.ts";
 import { hasUsablePlace, resolvePlace, type PickedPlace, type ResidentialPoi } from "./reverse.ts";
 
 /** 上海市人民广场：没有历史输入时的初始视野。 */
@@ -45,7 +45,7 @@ function describePrecision(place: PickedPlace): string {
 }
 
 /** 把定位来源和误差摊开说，避免"看着像在我家"就被当成准确。 */
-function describeLocate(info: { accuracy: number | null; kind: string }): string {
+function describeLocate(info: { accuracy: number | null; kind: string; samples?: number }): string {
   const source =
     info.kind === "ip"
       ? "IP 定位"
@@ -55,6 +55,7 @@ function describeLocate(info: { accuracy: number | null; kind: string }): string
           ? "高德定位"
           : "定位来源未知";
   const parts = [source];
+  if (info.samples && info.samples > 1) parts.push(`${info.samples} 次采样`);
   if (info.accuracy !== null) parts.push(`误差约 ±${info.accuracy} 米`);
   if (info.kind === "ip") {
     parts.push("IP 定位只能到城市或区一级，不能用来确认小区，请手动拖准星");
@@ -72,17 +73,21 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
   const mapRef = useRef<AmapMap | null>(null);
   const namespaceRef = useRef<AmapNamespace | null>(null);
   const geocoderRef = useRef<AmapGeocoder | null>(null);
-  const geolocationRef = useRef<AmapGeolocation | null>(null);
   const placeSearchRef = useRef<AmapPlaceSearch | null>(null);
   const myDotRef = useRef<AmapMarker | null>(null);
   const accuracyRef = useRef<AmapCircle | null>(null);
   const debounceRef = useRef(0);
+  const locateAbortRef = useRef<AbortController | null>(null);
 
   const [phase, setPhase] = useState<Phase>("closed");
   const [message, setMessage] = useState("");
   const [picked, setPicked] = useState<PickedPlace | null>(null);
   const [locating, setLocating] = useState(false);
-  const [locateInfo, setLocateInfo] = useState<{ accuracy: number | null; kind: string } | null>(null);
+  const [locateInfo, setLocateInfo] = useState<{ accuracy: number | null; kind: string; samples?: number } | null>(null);
+  const [locateProgress, setLocateProgress] = useState<string>("");
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [candidates, setCandidates] = useState<{ name: string; address: string; lng: number; lat: number }[]>([]);
 
   function resolveAt(lng: number, lat: number): void {
     const geocoder = geocoderRef.current;
@@ -153,11 +158,12 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
 
   function destroyMap(): void {
     window.clearTimeout(debounceRef.current);
+    locateAbortRef.current?.abort();
+    locateAbortRef.current = null;
     mapRef.current?.destroy();
     mapRef.current = null;
     namespaceRef.current = null;
     geocoderRef.current = null;
-    geolocationRef.current = null;
     placeSearchRef.current = null;
     myDotRef.current = null;
     accuracyRef.current = null;
@@ -193,15 +199,6 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
       geocoderRef.current = geocoder;
       // 住宅 POI 用于交叉验证 AOI，并在 AOI 缺失时兜底。
       placeSearchRef.current = new namespace.PlaceSearch({ type: "住宅区", pageSize: 10, extensions: "base" });
-      // useNative：用浏览器原生 Geolocation，不把 IP 交给高德的定位服务；
-      // convert：浏览器给的是 WGS-84，需要由高德转成 GCJ-02 才能和底图对齐。
-      geolocationRef.current = new namespace.Geolocation({
-        useNative: true,
-        convert: true,
-        enableHighAccuracy: true,
-        timeout: 8000,
-        noIpLocate: 1,
-      });
       map.on("moveend", onMapMoved);
       setPhase("ready");
 
@@ -232,36 +229,83 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
     setPicked(null);
     setLocating(false);
     setLocateInfo(null);
+    setLocateProgress("");
+    setCandidates([]);
+    setSearching(false);
   }
 
-  function locateMe(): void {
+  /** 把 WGS-84 转成高德坐标；转不了就报错，绝不把原始坐标直接画在 GCJ-02 底图上。 */
+  function toAmapPosition(sample: PositionSample): Promise<[number, number]> {
     const namespace = namespaceRef.current;
-    const geolocation = geolocationRef.current;
+    if (!namespace?.convertFrom) return Promise.resolve([sample.lng, sample.lat]);
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = window.setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error("坐标转换超时，请手动拖动准星"));
+        }
+      }, 5000);
+      namespace.convertFrom([sample.lng, sample.lat], "gps", (status, result) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        const location = status === "complete" ? result.locations?.[0] : undefined;
+        if (location && Number.isFinite(location.lng) && Number.isFinite(location.lat)) {
+          resolve([location.lng, location.lat]);
+        } else {
+          reject(new Error("坐标转换失败，请手动拖动准星"));
+        }
+      });
+    });
+  }
+
+  async function locateMe(): Promise<void> {
+    const namespace = namespaceRef.current;
     const map = mapRef.current;
-    if (!namespace || !geolocation || !map) return;
+    if (!namespace || !map || locating) return;
+
+    locateAbortRef.current?.abort();
+    const controller = new AbortController();
+    locateAbortRef.current = controller;
 
     setLocating(true);
     setMessage("");
-    geolocation.getCurrentPosition((status, result) => {
-      setLocating(false);
-      if (status !== "complete" || !result.position) {
-        setMessage("拿不到当前位置。请允许浏览器定位，并确认页面是用 https 或 localhost 打开的。");
+    setLocateProgress("正在获取位置…");
+    try {
+      // 多次采样：禁用缓存坐标，采 3 个样本后取加权的中心。
+      const { samples, errorCode } = await collectPosition({
+        maxSamples: 3,
+        maxWaitMs: 3_500,
+        onProgress: (rows) => {
+          const best = bestAccuracy(rows);
+          setLocateProgress(`正在获取位置… 已采样 ${rows.length}/3` + (best === null ? "" : `，当前最佳 ±${best} 米`));
+        },
+      }, controller.signal);
+
+      if (samples.length === 0) {
+        setMessage(
+          errorCode === 1
+            ? "浏览器拒绝了定位权限。请在地址栏的锁形图标里允许定位，或直接输入小区名定位。"
+            : "拿不到当前位置。请确认页面是用 https 或 localhost 打开的，也可以直接输入小区名定位。",
+        );
         return;
       }
-      const position = result.position;
-      const accuracy = typeof result.accuracy === "number" && Number.isFinite(result.accuracy) && result.accuracy > 0
-        ? Math.round(result.accuracy)
-        : null;
-      const kind = typeof result.location_type === "string" ? result.location_type : "";
-      setLocateInfo({ accuracy, kind });
-      // The blue dot is the user's real position: it is written once and never
-      // moved by dragging the map. Only an explicit click here updates it.
+
+      const merged = combineSamples(samples);
+      if (!merged) {
+        setMessage("定位结果不可用，请直接输入小区名定位。");
+        return;
+      }
+      const [lng, lat] = await toAmapPosition(merged);
+      const accuracy = merged.accuracy;
+
+      // 蓝点代表用户的真实位置：只在这里写入，拖动地图不会改变它。
       if (myDotRef.current) {
-        myDotRef.current.setPosition?.([position.lng, position.lat]);
+        myDotRef.current.setPosition?.([lng, lat]);
       } else {
-        // 自定义 HTML 图标：在任意缩放级别都能看清，不会被中心准星遮住。
         const dot = new namespace.Marker({
-          position: [position.lng, position.lat],
+          position: [lng, lat],
           anchor: "center",
           zIndex: 220,
           bubble: false,
@@ -270,14 +314,13 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
         map.add(dot);
         myDotRef.current = dot;
       }
-      // 把精度画成一个圈：50 米误差就是 50 米半径，肉眼可判断"够不够准"。
-      if (accuracy !== null && accuracy >= 5) {
+      if (accuracy >= 5) {
         if (accuracyRef.current) {
-          accuracyRef.current.setCenter?.([position.lng, position.lat]);
+          accuracyRef.current.setCenter?.([lng, lat]);
           accuracyRef.current.setRadius?.(accuracy);
         } else {
           const ring = new namespace.Circle({
-            center: [position.lng, position.lat],
+            center: [lng, lat],
             radius: accuracy,
             strokeColor: "#1a6ee0",
             strokeWeight: 1,
@@ -291,9 +334,81 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
           accuracyRef.current = ring;
         }
       }
-      map.setCenter([position.lng, position.lat]);
-      map.setZoom(17);
-      map.resize();
+      setLocateInfo({ accuracy, kind: "html5", samples: samples.length });
+      // 误差太大时不要硬把地图跳过去，避免"看起来很准"的误导。
+      if (accuracy > 100) {
+        setMessage("当前定位偏差较大（超过 100 米），已保留蓝点但不自动居中，请用准星或直接输入小区名。");
+      } else {
+        map.setCenter([lng, lat]);
+        map.setZoom(17);
+        map.resize();
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "定位失败，请直接输入小区名。");
+    } finally {
+      setLocating(false);
+      setLocateProgress("");
+    }
+  }
+
+  function centerOn(lng: number, lat: number): void {
+    const map = mapRef.current;
+    if (!map) return;
+    setCandidates([]);
+    map.setCenter([lng, lat]);
+    map.setZoom(17);
+    map.resize();
+  }
+
+  /** 输入小区名直接定位：先用 POI 搜索，搜不到再退到地理编码。 */
+  function searchPlace(): void {
+    const keyword = query.trim();
+    const search = placeSearchRef.current;
+    const geocoder = geocoderRef.current;
+    if (!keyword || searching) return;
+    if (!search) return;
+
+    setSearching(true);
+    setMessage("");
+    const finish = (rows: { name: string; address: string; lng: number; lat: number }[]) => {
+      setSearching(false);
+      if (rows.length === 0) {
+        // POI 搜不到时退回地址解析。
+        geocoder?.getLocation(keyword, (status, result) => {
+          const location = status === "complete" ? result.geocodes?.[0]?.location : undefined;
+          if (location) centerOn(location.lng, location.lat);
+          else setMessage("没有找到这个地点，换个更完整的名字试试，例如「上海市普陀区金纺苑」。");
+        });
+        return;
+      }
+      if (rows.length === 1) {
+        centerOn(rows[0].lng, rows[0].lat);
+        return;
+      }
+      setCandidates(rows);
+    };
+
+    const timer = window.setTimeout(() => finish([]), 6000);
+    search.search(keyword, (status, result) => {
+      window.clearTimeout(timer);
+      if (status !== "complete") {
+        finish([]);
+        return;
+      }
+      const rows = (result.poiList?.pois ?? [])
+        .map((poi) => {
+          const location = poi.location;
+          const address = Array.isArray(poi.address) ? poi.address.join("") : poi.address ?? "";
+          return {
+            name: typeof poi.name === "string" ? poi.name : "",
+            address: String(address),
+            lng: location?.lng ?? Number.NaN,
+            lat: location?.lat ?? Number.NaN,
+          };
+        })
+        .filter((row) => row.name && Number.isFinite(row.lng) && Number.isFinite(row.lat))
+        .slice(0, 4);
+      finish(rows);
     });
   }
 
@@ -350,6 +465,37 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
           </div>
         ) : (
           <>
+            <div className="map-search">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    searchPlace();
+                  }
+                }}
+                placeholder="输入小区名直接定位，例如 金纺苑"
+                disabled={phase !== "ready"}
+                maxLength={60}
+              />
+              <button type="button" className="btn secondary" onClick={searchPlace} disabled={searching || phase !== "ready"}>
+                {searching ? "搜索中…" : "定位到"}
+              </button>
+            </div>
+            {candidates.length > 0 && (
+              <ul className="map-candidates">
+                {candidates.map((row) => (
+                  <li key={`${row.name}-${row.lng}-${row.lat}`}>
+                    <button type="button" onClick={() => centerOn(row.lng, row.lat)}>
+                      <strong>{row.name}</strong>
+                      {row.address && <span>{row.address}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
             <div className="map-canvas-wrap">
               <div className="map-canvas" ref={canvasRef} />
               <div className="map-crosshair" aria-hidden="true"><span /></div>
@@ -373,13 +519,14 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
             </div>
 
             <div className="map-actions">
-              <button type="button" className="btn secondary" onClick={locateMe} disabled={locating || phase !== "ready"}>
+              <button type="button" className="btn secondary" onClick={() => void locateMe()} disabled={locating || phase !== "ready"}>
                 {locating ? "定位中…" : "定位我的位置"}
               </button>
               <button type="button" className="btn" onClick={applyPicked} disabled={!picked}>
                 使用这个位置
               </button>
             </div>
+            {locateProgress && <p className="note map-locate">{locateProgress}</p>}
             {locateInfo && <p className="note map-locate">{describeLocate(locateInfo)}</p>}
             <p className="note">
               蓝点是你当前的位置，拖动地图不会改变它。定位结果只用于确认地点，不是风险证据，也不能代替同名小区的人工核对。

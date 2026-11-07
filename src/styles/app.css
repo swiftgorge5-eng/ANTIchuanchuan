@@ -276,3 +276,21 @@ fieldset:disabled { opacity: 0.65; }
 .consent-line { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.6rem; font-size: 0.86rem; color: var(--muted); }
 .consent-line input { width: auto; margin-top: 0.2rem; }
 
+
+/* 地图选点：按小区名直接定位 */
+.map-search { display: flex; gap: 0.6rem; margin-bottom: 0.7rem; }
+.map-search input { flex: 1; min-width: 0; }
+.map-candidates { display: grid; gap: 0.35rem; list-style: none; margin: 0 0 0.7rem; padding: 0; }
+.map-candidates button {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: #fff;
+  text-align: left;
+}
+.map-candidates button:hover { border-color: var(--teal); }
+.map-candidates span { color: var(--muted); font-size: 0.8rem; }
+

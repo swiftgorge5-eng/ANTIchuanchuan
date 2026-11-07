@@ -98,9 +98,15 @@ export interface NearbyPoi {
   distance?: string | number;
   address?: string | string[];
   type?: string;
+  location?: AmapLngLat;
 }
 
 export interface AmapPlaceSearch {
+  /** 关键字搜索，用于「输入小区名直接定位」 */
+  search(
+    keyword: string,
+    callback: (status: string, result: { poiList?: { pois?: NearbyPoi[] } }) => void,
+  ): void;
   searchNearBy(
     keyword: string,
     center: [number, number],
@@ -114,8 +120,13 @@ export interface AmapNamespace {
   Circle: new (options?: Record<string, unknown>) => AmapCircle;
   Marker: new (options?: Record<string, unknown>) => AmapMarker;
   Geocoder: new (options?: Record<string, unknown>) => AmapGeocoder;
-  Geolocation: new (options?: Record<string, unknown>) => AmapGeolocation;
   PlaceSearch: new (options?: Record<string, unknown>) => AmapPlaceSearch;
+  /** WGS-84（浏览器定位）转 GCJ-02（高德底图） */
+  convertFrom(
+    position: [number, number],
+    type: "gps",
+    callback: (status: string, result: { locations?: AmapLngLat[] }) => void,
+  ): void;
 }
 
 type AmapWindow = {
@@ -124,7 +135,7 @@ type AmapWindow = {
 };
 
 const SCRIPT_ID = "antichuanchuan-amap-2";
-const SCRIPT_BASE = "https://webapi.amap.com/maps?v=2.0&plugin=AMap.Geocoder,AMap.Geolocation,AMap.PlaceSearch";
+const SCRIPT_BASE = "https://webapi.amap.com/maps?v=2.0&plugin=AMap.Geocoder,AMap.PlaceSearch";
 const LOAD_TIMEOUT_MS = 15_000;
 
 export const AMAP_MISSING_KEY = "尚未配置高德地图 Key";
