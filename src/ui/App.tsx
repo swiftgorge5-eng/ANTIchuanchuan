@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AnalysisInput, AnalysisStage, FinalReport } from "../core/index.ts";
 import { downloadFailure, errorCode, runPageAnalysis, safeMessage, saveReport, type EvidenceSource } from "./analyze.ts";
 import { buildAnalysisInput, RENTAL_LABEL } from "./copy.ts";
+import { PlaceMapCard } from "./map/PlaceMapCard.tsx";
 import { PhotoStage } from "./PhotoStage.tsx";
 import { releasePhoto, releaseSubmitted, rememberPhotos, takePhotos, type LocalPhoto, type SubmittedPhoto } from "./photos.ts";
 import { ReportView } from "./ReportView.tsx";
@@ -29,6 +30,7 @@ export function App() {
   const [source, setSource] = useState<EvidenceSource>("demo");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [stages, setStages] = useState<AnalysisStage[]>([]);
   const [report, setReport] = useState<FinalReport | null>(null);
@@ -89,6 +91,10 @@ export function App() {
     }
     if (mode === "real" && !apiKey.trim()) {
       setError("真实模式需要本次使用的模型密钥。照片没有被读取。");
+      return;
+    }
+    if (mode === "real" && !consent) {
+      setError("真实分析会把照片发往模型服务商，请先勾选同意。照片没有被读取。");
       return;
     }
     const submitted = photos.map((photo) => photo.file);
@@ -193,6 +199,17 @@ export function App() {
               <label className="wide">小区<input value={communityName} disabled={running} onChange={(event) => setCommunityName(event.target.value)} placeholder="金纺苑" /></label>
               <label className="wide">地址线索<input value={addressHint} disabled={running} onChange={(event) => setAddressHint(event.target.value)} placeholder="选填，不精确到门牌" /></label>
             </div>
+            <PlaceMapCard
+              disabled={running}
+              value={{ city, district, communityName, addressHint }}
+              onApply={(place) => {
+                // Only the three identity fields are replaced; addressHint is the
+                // user's own lead (unit number etc.) and must not be overwritten.
+                if (place.city) setCity(place.city);
+                if (place.district) setDistrict(place.district);
+                if (place.communityName) setCommunityName(place.communityName);
+              }}
+            />
             {source === "history" && (
               <button
                 type="button"
@@ -242,14 +259,26 @@ export function App() {
                 <button type="button" className="text-btn" onClick={() => setApiKey("")}>清除</button>
               </div>
               <p className="note">密钥只留在这次页面的内存里。刷新就消失，不会写入浏览器存储、网址或报告。</p>
+              <label className="consent-line">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  disabled={running}
+                  onChange={(event) => setConsent(event.target.checked)}
+                />
+                我同意把选中照片发送给 DeepSeek 官方接口做识别；地点信息不随照片发送。
+              </label>
             </div>
 
             <div className="actions">
               <button type="submit" className="btn" disabled={running}>开始 Mock 分析</button>
-              <button type="button" className="btn secondary" disabled={running} onClick={() => void start("real")}>尝试真实分析</button>
+              <button type="button" className="btn secondary" disabled={running} onClick={() => void start("real")}>开始真实分析</button>
               <button type="button" className="btn secondary" disabled={!running} onClick={() => controllerRef.current?.abort()}>取消</button>
             </div>
-            <p className="note">真实视觉模型尚未接入。点击真实分析会走接口，但会在读取照片之前停止，照片不会发往第三方。</p>
+            <p className="note">
+              真实分析会把照片发往 api.deepseek.com，需要你自己的 Key 并勾选同意；模型只描述可见线索，
+              不下安全结论。没有 Key 时先用 Mock 体验流程。
+            </p>
           </form>
 
           <StageRail stages={stages} phase={phase} sourceNote={sourceNote(source)} />

@@ -27,7 +27,19 @@ export function StageRail({ stages, phase, sourceNote }: StageRailProps) {
     <section className="stages" aria-label="分析进度">
       <div className="section-head">
         <h2>进度</h2>
-        <p aria-live="polite">{current ? `当前：${current[1]}` : phase === "success" ? "报告已整理" : phase === "running" ? "正在开始" : "尚未开始"}</p>
+        <p aria-live="polite">
+          {current
+            ? `当前：${current[1]}`
+            : phase === "success"
+              ? "报告已整理"
+              : phase === "running"
+                ? "正在开始"
+                : phase === "error"
+                  ? "分析中断"
+                  : phase === "cancelled"
+                    ? "已取消"
+                    : "尚未开始"}
+        </p>
       </div>
       <ol className="rail">
         {STEPS.map(([id, label], index) => {

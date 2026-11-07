@@ -2,3 +2,8 @@ node_modules/
 dist/
 *.local
 .DS_Store
+
+# 环境变量：只提交模板，真实值一律留在本机
+.env
+.env.*
+!.env.example
