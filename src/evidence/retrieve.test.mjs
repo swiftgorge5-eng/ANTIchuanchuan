@@ -12,13 +12,24 @@ async function query(city, district, communityName, addressHint) {
   return rag.retrieveEvidence({ city, district, communityName, ...(addressHint ? { addressHint } : {}) });
 }
 
-test("parses exactly 57 complete records, no duplicate IDs, full handling retained", () => {
+test("parses all 1057 complete records, including four-digit IDs, with no duplicates", () => {
   const records = parseHistoricalLibrary(markdown);
-  assert.equal(rag.recordCount, 57);
-  assert.equal(new Set(records.map(row => row.metadata.id)).size, 57);
+  assert.equal(rag.recordCount, 1057);
+  assert.equal(new Set(records.map(row => row.metadata.id)).size, 1057);
+  assert.equal(records.at(-1).metadata.id, "SH1073");
   assert.ok(records.every(row => row.text.includes("### 当时处理进展")));
   assert.ok(records.every(row => row.text.includes("### 使用限制")));
   assert.ok(records.every(row => row.metadata.current_status_verified === false));
+});
+
+test("retrieves a four-digit record with the original source and scope", async () => {
+  const result = await query("上海", "浦东新区", "文化馨苑");
+  assert.equal(result.status, "matched");
+  const item = result.items.find(row => row.id === "SH1073");
+  assert.ok(item);
+  assert.match(item.url, /www\.pudong\.gov\.cn/);
+  assert.match(item.summary, /拟改造范围/);
+  assert.deepEqual(validateEvidence(result), result);
 });
 
 test("exact location resolves published SH044 source and keeps current status unverified", async () => {

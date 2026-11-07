@@ -105,7 +105,7 @@ export function createHistoricalRag(markdown: string): HistoricalRag {
     const chosen = confirmed.length ? confirmed : candidates;
     const status: EvidenceResult["status"] = !candidates.length ? "no_match"
       : confirmed.length && confirmed.length === candidates.length ? "matched" : "ambiguous";
-    const ordered = [...chosen].sort((a, b) => a.record.metadata.id.localeCompare(b.record.metadata.id));
+    const ordered = [...chosen].sort((a, b) => a.record.metadata.id.localeCompare(b.record.metadata.id, undefined, { numeric: true }));
     const seen = new Set<string>();
     const unique = ordered.filter(row => {
       if (seen.has(row.record.metadata.id)) return false;
