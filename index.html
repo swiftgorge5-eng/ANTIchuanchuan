@@ -19,6 +19,7 @@
 @media(max-width:880px){.header{height:auto;min-height:72px;padding:13px 16px}.brand strong{font-size:18px}.brand-mark{width:37px;height:37px;border-radius:12px}.head-actions .key-state{display:none}.app{grid-template-columns:1fr;gap:14px;padding:14px}.side{grid-row:2}.center{grid-row:1}.right{grid-column:1;grid-row:3;grid-template-columns:repeat(2,minmax(0,1fr))}.side-card{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}.intro{grid-column:1/-1;min-height:unset}.side-card .group{margin-top:17px}.side-card .privacy,.side-card #analyzeBtn,.sidebar-footer,.side-card .info-pill{grid-column:1/-1}.photo-stage{max-height:unset;min-height:320px;aspect-ratio:1.3}.bottom-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:580px){.header{flex-wrap:wrap;justify-content:center;gap:10px}.head-actions{width:100%;justify-content:space-between}.brand{width:100%;justify-content:center}.header .btn{font-size:12px;padding:8px 10px}.app{padding:10px;gap:11px}.side-card,.workspace,.risk-card,.mini-panel{padding:12px}.side-card{grid-template-columns:1fr}.side-card .group{margin-top:16px}.side-card .intro{grid-column:1}.side-card .privacy,.side-card #analyzeBtn,.sidebar-footer,.side-card .info-pill{grid-column:1}.photo-stage{min-height:280px;aspect-ratio:1.02}.workspace-head{align-items:flex-start}.workspace-title strong{font-size:14px}.workspace-topbuttons .btn{padding:7px;font-size:11px}.stage-label{font-size:10px;top:10px;padding:6px 8px}.stage-label.left{left:10px}.stage-label.right{right:10px}.toolbar{justify-content:space-between}.tool{font-size:11px;padding:8px 4px;gap:5px}.sep{display:none}.right,.bottom-grid{grid-template-columns:1fr}.right .risk-card:first-child,.right .risk-card:last-child{grid-column:1}.photo-stage .annotation{font-size:9px;max-width:125px;white-space:normal}.gauge{width:112px;height:112px;flex-basis:112px}.foot{padding:0 12px}.statusline{font-size:10px}}
 @media print{.header,.side,.toolbar,.thumbs,.btn,.sources-form,.modal,.foot,.toast,.workspace-topbuttons,.view-cover{display:none!important}.app{display:block;padding:0}.center,.right{display:block}.workspace,.risk-card,.mini-panel{box-shadow:none;break-inside:avoid;margin:10px 0}.photo-stage{max-height:420px;min-height:320px;aspect-ratio:1.7}.statusline{display:none}.bottom-grid{display:grid;grid-template-columns:1fr 1fr}.right{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.right .risk-card:last-child{grid-column:1/-1}body{background:#fff}}
+.rag-results{margin:12px 0 0;max-height:530px;overflow:auto;overscroll-behavior:contain}.rag-results .source-link{padding:12px 4px;border-top:1px solid #e5ebef}.rag-results .source-link p{white-space:normal;line-height:1.65;margin:5px 0}.rag-results .source-link a{display:inline-block;margin-top:6px;font-weight:650}
 </style>
 </head>
 <body>
@@ -52,7 +53,7 @@
 <section class="panel risk-card"><h3 class="risk-title">综合视觉风险 <span class="info-icon" title="视觉特征的未校准规则分数，并非真实事故概率">i</span></h3><div class="gauge-row"><div class="gauge" id="gauge" style="--gauge-value:0%;--gauge-color:#9aabb6"><div class="gauge-inner"><strong id="gaugeValue">待分析</strong><small id="gaugeSub">证据未收集</small></div></div><div class="gauge-note" id="gaugeNote">仅依据照片可见线索作提示，不直接断言房屋安全或认定“串串房”。</div></div><p class="tiny-note">评分是未校准的视觉规则分数，不是统计概率。可见线索不足时不输出分数。</p></section>
 <section class="panel risk-card"><h3 class="risk-title">房型线索符合度 <span class="info-icon" title="仅给出有依据的视觉线索，不推断无法从照片证明的租约类型">i</span></h3><div id="typeBars"><div class="bar-line"><label>串串房</label><div class="bar"><div class="fill"></div></div><output>—</output></div><div class="bar-line"><label>普通合租</label><div class="bar"><div class="fill"></div></div><output>—</output></div><div class="bar-line"><label>正常整租</label><div class="bar"><div class="fill"></div></div><output>—</output></div></div><p class="tiny-note" id="typeNote">整租与合租属于实际租赁安排，不能仅凭室内照片确定；对应结果须结合租约核实。</p></section>
 <section class="panel risk-card"><h3 class="risk-title">关键证据 <span class="info-icon" title="按实际来源分别展示">i</span></h3><div class="evidence-list" id="evidenceList"><div class="evidence-item"><span class="e-icon">◌</span><div><strong>暂无照片识别结果</strong><p>开始识别后在这里查看具体可见依据与不确定性。</p></div></div></div></section>
-<section class="panel risk-card"><h3 class="risk-title">位置与外部资料</h3><div class="map-placeholder" id="mapBox"></div><div class="map-info" id="mapInfo"><b>尚未查询楼盘位置</b><div>可输入城市和楼盘名进行地图检索；地理匹配本身不是风险证据。</div></div><div class="map-actions"><button class="btn sm" id="locateBtn">⌖ 地图定位</button><button class="btn sm" id="searchWebBtn">↗ 查公开资料</button></div><details class="sources-panel" id="sourceDetails"><summary>＋ 添加可核验的公开来源</summary><form class="sources-form" id="sourceForm"><input class="field" id="srcTitle" required maxlength="90" placeholder="来源标题，如 XX 区公开公告"><input class="field" id="srcUrl" required type="url" placeholder="https://... 实际来源链接"><textarea class="field" id="srcDescription" maxlength="300" rows="2" placeholder="摘录核实后的相关事实（请勿录入未经证实的指控）"></textarea><button class="btn sm primary" type="submit">添加此来源</button></form><p class="help">纯静态页面不能自行验证某网站的真实性；添加后会明确标记“用户提供，未独立核验”。</p></details><div id="sourceList"></div></section>
+<section class="panel risk-card"><h3 class="risk-title">位置与外部资料</h3><div class="map-placeholder" id="mapBox"></div><div class="map-info" id="mapInfo"><b>尚未查询楼盘位置</b><div>可输入城市和楼盘名进行地图检索；地理匹配本身不是风险证据。</div></div><div class="map-actions"><button class="btn sm" id="locateBtn">⌖ 地图定位</button><button class="btn sm" id="searchWebBtn">↗ 查公开资料</button><button class="btn sm outline" id="ragSearchBtn" type="button">▣ 检索仓库历史资料</button></div><div class="rag-results" id="ragResults" aria-live="polite"><p class="help">点击按钮检索项目仓库中的历史记录，不会上传照片或模型 Key。</p></div><details class="sources-panel" id="sourceDetails"><summary>＋ 添加可核验的公开来源</summary><form class="sources-form" id="sourceForm"><input class="field" id="srcTitle" required maxlength="90" placeholder="来源标题，如 XX 区公开公告"><input class="field" id="srcUrl" required type="url" placeholder="https://... 实际来源链接"><textarea class="field" id="srcDescription" maxlength="300" rows="2" placeholder="摘录核实后的相关事实（请勿录入未经证实的指控）"></textarea><button class="btn sm primary" type="submit">添加此来源</button></form><p class="help">纯静态页面不能自行验证某网站的真实性；添加后会明确标记“用户提供，未独立核验”。</p></details><div id="sourceList"></div></section>
 </aside>
 </main>
 <footer class="foot">ANTIchuanchuan · 单文件纯前端原型 · 不收集账号、不存储 API Key、不部署后台 · OpenStreetMap / Nominatim 仅在主动地图定位时连接外部服务 · 视觉评估不是房屋质量鉴定、环保检测或法律意见。</footer>
@@ -69,7 +70,7 @@ const CATS = {
  daylight_cue: {name:'自然采光线索',icon:'☀',weight:.15,positive:'画面可见采光'}
 };
 const DEFAULT_IMG = $('mainPhoto').src;
-const state={photos:[{id:'sample',name:'演示空间 · 生成的合成照片',dataUrl:DEFAULT_IMG,preview:DEFAULT_IMG,isDemo:true,width:1536,height:1024}],index:0,report:null,observations:[],sources:[],location:null,abort:null,phase:'idle',compare:true,favorite:false,mode:'idle',lastError:''};
+const state={photos:[{id:'sample',name:'演示空间 · 生成的合成照片',dataUrl:DEFAULT_IMG,preview:DEFAULT_IMG,isDemo:true,width:1536,height:1024}],index:0,report:null,observations:[],sources:[],location:null,historyEvidence:null,abort:null,phase:'idle',compare:true,favorite:false,mode:'idle',lastError:''};
 let toastTimer=0;let mapAbort=null;
 function showToast(message){const node=$('toast');node.textContent=message;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),4300)}
 function putText(id,text){$(id).textContent=String(text)}
@@ -101,12 +102,13 @@ function renderRisk(){const r=state.report?.risk;let val='待分析',sub='证据
 $('gauge').style.setProperty('--gauge-color',color);$('gauge').style.setProperty('--gauge-value',amount+'%');putText('gaugeValue',val);putText('gaugeSub',sub);putText('gaugeNote',note);renderBars()}
 function renderEvidence(){const panel=$('evidenceList');panel.replaceChildren();if(!state.report){const c=document.createElement('div');c.className='evidence-item';addText(c,'span','◌','e-icon');const inner=document.createElement('div');addText(inner,'strong','暂无照片识别结果');addText(inner,'p','上传照片并识别后显示可见依据和不确定性。');c.appendChild(inner);panel.appendChild(c);return}
 const arr=state.observations.filter(v=>v.state==='present');const seen=[];for(const ob of arr){const key=ob.category+':'+ob.photoId;if(seen.includes(key))continue;seen.push(key);const item=document.createElement('div');item.className='evidence-item';addText(item,'span',CATS[ob.category].icon,'e-icon');const inner=document.createElement('div');addText(inner,'strong',CATS[ob.category].name+' · '+(state.mode==='demo'?'合成演示':'视觉观察'));addText(inner,'p',ob.evidence||'模型未提供明确证据');item.appendChild(inner);panel.appendChild(item)}if(!seen.length){const item=document.createElement('div');item.className='evidence-item';addText(item,'span','ⓘ','e-icon');const inner=document.createElement('div');addText(inner,'strong','未检测到明确的可见风险项');addText(inner,'p','请注意：未发现并不等于不存在，unknown 类别仍需线下核对。');item.appendChild(inner);panel.appendChild(item)}
+if(state.historyEvidence){const item=document.createElement('div');item.className='evidence-item';addText(item,'span','▣','e-icon');const inner=document.createElement('div');addText(inner,'strong','仓库历史资料 · '+state.historyEvidence.items.length+' 条候选');addText(inner,'p','单独显示于楼盘信息区，不参与照片规则评分；当前状态未核实。');item.appendChild(inner);panel.appendChild(item)}
 if(state.sources.length){const item=document.createElement('div');item.className='evidence-item';addText(item,'span','↗','e-icon');const inner=document.createElement('div');addText(inner,'strong','用户添加了 '+state.sources.length+' 条外部来源');addText(inner,'p','这些来源未经本站独立核验，不自动计入风险评分。');item.appendChild(inner);panel.appendChild(item)}
 }
 function renderReport(){const r=state.report;renderRisk();renderFeatures();renderEvidence();renderPhotoStage();if(r){putText('analysisSummary',r.summary+'\n\n'+r.risk.explanation);$('analysisSummary').style.whiteSpace='pre-line';putText('modeChip',state.mode==='demo'?'合成演示 · 非真实识别':'DeepSeek Flash · 视觉观察');$('modeChip').className='chip'+(state.mode==='demo'?' warn':'')}else{putText('analysisSummary','这是可直接打开的静态网页。默认显示示例室内图片，但不代表 AI 已识别。上传照片，填写 DeepSeek Key 并同意发送后可进行真实分析。');putText('modeChip','尚未分析');$('modeChip').className='chip'}}
 function clearReportOnly(){state.report=null;state.observations=[];state.mode='idle';state.favorite=false;putText('favText','收藏');$('favoriteBtn').classList.remove('saved');renderReport();setStatus('准备就绪','上传照片后可开始真实识别',0,false)}
 function normalizeResponse(raw,photoIds){if(!raw||!Array.isArray(raw.observations))throw Error('模型未返回符合要求的观察项 JSON');const observations=[];for(const item of raw.observations.slice(0,36)){if(!item||!photoIds.includes(item.photoId)||!Object.hasOwn(CATS,item.category)||!['present','absent','unknown'].includes(item.state))continue;let ev=safeShort(item.evidence,240);if(item.state==='present'&&!ev)continue;let point=null;if(item.point&&numberIn(item.point.x,0,1)&&numberIn(item.point.y,0,1))point={x:item.point.x,y:item.point.y};observations.push({photoId:item.photoId,category:item.category,state:item.state,evidence:ev,point})}if(!observations.length)throw Error('模型返回了数据，但没有可验证的观察项');return{observations,summary:safeShort(raw.summary,420)||'照片观察已完成。'}}
-function buildReport(observations,summary,isDemo=false){const r=calculateRisk(observations);const v=getValues();return {schema_version:1,status:'success',createdAt:new Date().toISOString(),mode:isDemo?'synthetic_demo':'deepseek_vision',model:isDemo?'synthetic_fixture':'deepseek-flash',spaceType:v.space,rentalMode:v.rentalMode,locationQuery:{city:v.city,district:v.district,communityName:v.community},locationMatch:state.location?{name:state.location.display_name,lat:state.location.lat,lon:state.location.lon,source:'OpenStreetMap Nominatim · 仅地理匹配'}:null,observations,visualRisk:r,summary,externalSources:state.sources.map(s=>({...s,verification:'用户提供 · 本站未独立核验'})),limitations:['本评分为未校准视觉规则分，不能当成真实发生概率','无法通过照片判断甲醛、产权、合同合法性、承重结构或实际居住质量','OSM 地理定位不是风险证据','外部来源由用户提供，未被本站自动查证','合租与整租无法从普通照片证明'],photoMeta:state.photos.map(p=>({id:p.id,name:p.name,width:p.width,height:p.height,demo:p.isDemo}))}}
+function buildReport(observations,summary,isDemo=false){const r=calculateRisk(observations);const v=getValues();return {schema_version:1,status:'success',createdAt:new Date().toISOString(),mode:isDemo?'synthetic_demo':'deepseek_vision',model:isDemo?'synthetic_fixture':'deepseek-flash',spaceType:v.space,rentalMode:v.rentalMode,locationQuery:{city:v.city,district:v.district,communityName:v.community},locationMatch:state.location?{name:state.location.display_name,lat:state.location.lat,lon:state.location.lon,source:'OpenStreetMap Nominatim · 仅地理匹配'}:null,observations,visualRisk:r,summary,historicalEvidence:state.historyEvidence?JSON.parse(JSON.stringify(state.historyEvidence)):null,externalSources:state.sources.map(s=>({...s,verification:'用户提供 · 本站未独立核验'})),limitations:['本评分为未校准视觉规则分，不能当成真实发生概率','无法通过照片判断甲醛、产权、合同合法性、承重结构或实际居住质量','OSM 地理定位不是风险证据','外部来源由用户提供，未被本站自动查证','合租与整租无法从普通照片证明'],photoMeta:state.photos.map(p=>({id:p.id,name:p.name,width:p.width,height:p.height,demo:p.isDemo}))}}
 function setReport(raw,isDemo){const p=state.photos.map(p=>p.id);const n=normalizeResponse(raw,p);state.observations=n.observations;state.mode=isDemo?'demo':'real';state.report={risk:calculateRisk(n.observations),summary:n.summary,createdAt:new Date().toISOString()};state.report=buildReport(n.observations,n.summary,isDemo);state.report.risk=state.report.visualRisk;renderReport();setStatus('分析完成',isDemo?'合成演示，不代表真实照片识别':'照片视觉观察完成 · 请核验模型结论',100,false)}
 function hasRealPhotos(){return state.photos.some(p=>!p.isDemo)}
 function syntheticDemo(){if(state.abort)return;const photo=activePhoto();const example={summary:'此结果是预置的合成演示样例，只用于展示网站的风险证据、照片标注和报告交互；没有调用任何模型，也没有真实判断房屋。',observations:[{photoId:photo.id,category:'renovation_trace',state:'present',evidence:'合成示例：墙面呈较新涂装状态（仅用于演示）',point:{x:.58,y:.38}},{photoId:photo.id,category:'partition_trace',state:'present',evidence:'合成示例：演示标注模拟一处疑似隔断（不能据此认定真实隔断）',point:{x:.73,y:.53}},{photoId:photo.id,category:'moisture_trace',state:'unknown',evidence:'合成示例：照片无法覆盖所有墙角'},{photoId:photo.id,category:'daylight_cue',state:'present',evidence:'合成示例：画面显示窗边自然光',point:{x:.93,y:.27}}]};setReport(example,true);showToast('已载入合成演示：所有风险标签仅用于展示，不是对这张照片的实际判断')}
@@ -122,9 +124,126 @@ function makeSummary(){const r=state.report;if(!r)return '尚无分析结果';co
 function openModal(node){$('modalContent').replaceChildren();$('modalContent').appendChild(node);$('modal').classList.add('show')}
 function showEvidenceModal(item){const box=document.createElement('div');addText(box,'h3','视觉证据详情');addText(box,'p',CATS[item.category].name+' · '+(state.mode==='demo'?'合成演示':'模型视觉识别'));addText(box,'p',item.evidence);addText(box,'p','照片 ID：'+item.photoId+'；状态：'+item.state);addText(box,'p','注意：模型的可见特征标注可能有误，应核对原始照片及现场情况。');openModal(box)}
 function renderSources(){const box=$('sourceList');box.replaceChildren();for(const [i,s] of state.sources.entries()){const el=document.createElement('div');el.className='source-link';addText(el,'strong',s.title);addText(el,'p','用户提供 · 未独立核验'+(s.summary?' · '+s.summary:''));const a=addText(el,'a','打开原始链接 ↗');a.href=s.url;a.target='_blank';a.rel='noopener noreferrer';const btn=addText(el,'button',' 删除');btn.type='button';btn.onclick=()=>{state.sources.splice(i,1);renderSources();renderEvidence()};box.appendChild(el)}}
+
+/* Read the maintained public evidence library on explicit user request.
+   No backend, no key, no photo is sent to GitHub. Historical matches do not affect the visual score. */
+const RAG_LIBRARY_URL='https://raw.githubusercontent.com/swiftgorge5-eng/ANTIchuanchuan/main/RAG/%E5%B0%8F%E5%8C%BA%E5%8E%86%E5%8F%B2%E9%97%AE%E9%A2%98.md';
+let ragRecords=null,ragLoading=null;
+function ragNorm(s){return String(s||'').normalize('NFKC').replace(/[\s\u3000]+/gu,'').trim()}
+function ragCity(s){const n=ragNorm(s);return n==='上海'?'上海市':n}
+function ragDistrict(s){const n=ragNorm(s);return n==='浦东'?'浦东新区':n&&!/(区|县|市)$/.test(n)?n+'区':n}
+function ragSection(block,heading){
+  const prefix='### '+heading+'\n',from=block.indexOf(prefix);
+  if(from<0)return '资料缺少该字段，请点击来源核对';
+  const begin=from+prefix.length,end=block.indexOf('\n### ',begin);
+  return block.slice(begin,end<0?undefined:end).replace(/<[^>]*>/g,' ').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,450);
+}
+async function loadRagLibrary(){
+  if(ragRecords)return ragRecords;
+  if(!ragLoading)ragLoading=(async()=>{
+    const resp=await fetch(RAG_LIBRARY_URL,{cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});
+    if(!resp.ok)throw Error('GitHub 公开资料读取失败（HTTP '+resp.status+'）');
+    const markdown=await resp.text(),rows=[],seen=new Set();
+    const blocks=markdown.replace(/\r\n/g,'\n').split(/(?=^## SH\d{3,}｜)/m);
+    for(const block of blocks){
+      const id=/^## (SH\d{3,})｜/m.exec(block);
+      if(!id||id.index!==0)continue;
+      const match=/^`json[ \t]*\n([\s\S]*?)\n```/m.exec(block);
+      if(!match)throw Error('历史资料格式不正确：缺少 JSON');
+      const meta=JSON.parse(match[1]);
+      if(meta.id!==id[1]||seen.has(meta.id)||!meta.city||!meta.district||!meta.entity_name||
+         !Array.isArray(meta.entity_aliases)||!Array.isArray(meta.entity_members)||
+         !/^https:\/\//.test(meta.source_url||''))throw Error('历史资料格式不正确：主体或出处');
+      seen.add(meta.id);
+      rows.push({meta,overview:ragSection(block,'历史问题概括（整理者归纳）'),
+        scope:ragSection(block,'涉及范围'),handling:ragSection(block,'当时处理进展'),
+        limitations:ragSection(block,'使用限制')});
+    }
+    if(!rows.length)throw Error('历史资料没有有效记录');
+    ragRecords=rows;
+    return rows;
+  })().catch(e=>{ragLoading=null;throw e});
+  return ragLoading;
+}
+function ragIdentity(meta,name){
+  const same=n=>n===name||(n.endsWith('小区')&&n.slice(0,-2)===name&&name.length>=3);
+  const canon=[meta.entity_name,...meta.entity_aliases].map(ragNorm);
+  if(canon.some(same))return 'exact';
+  if(meta.entity_members.map(ragNorm).some(same))return 'related';
+  if(name.length>=3&&canon.some(n=>n.includes(name)||name.includes(n)))return 'partial';
+  return 'none';
+}
+function findRagEvidence(rows,query){
+  const name=ragNorm(query.communityName);
+  const candidates=rows.filter(r=>(!query.city||ragCity(r.meta.city)===ragCity(query.city))&&
+    (!query.district||ragDistrict(r.meta.district)===ragDistrict(query.district)))
+    .map(r=>({...r,identity:ragIdentity(r.meta,name)})).filter(r=>r.identity!=='none');
+  const exact=candidates.filter(r=>r.identity==='exact');
+  const entities=new Set(exact.map(r=>[ragCity(r.meta.city),ragDistrict(r.meta.district),ragNorm(r.meta.entity_name)].join('|')));
+  const confirmed=query.city&&query.district&&name&&entities.size===1?exact:[];
+  const status=!candidates.length?'no_match':
+    confirmed.length&&confirmed.length===candidates.length?'matched':'ambiguous';
+  const chosen=(confirmed.length?confirmed:candidates).sort((a,b)=>a.meta.id.localeCompare(b.meta.id,undefined,{numeric:true})).slice(0,20);
+  return {status,libraryCount:rows.length,query,items:chosen.map(r=>({
+    id:r.meta.id,city:r.meta.city,district:r.meta.district,communityName:r.meta.entity_name,
+    title:'历史公开记录 '+r.meta.id+'｜'+r.meta.entity_name,
+    publisher:r.meta.source_name,url:r.meta.source_url,
+    date:[r.meta.published_at,r.meta.issued_at,r.meta.record_date].find(x=>/^\d{4}-\d\d-\d\d$/.test(x||''))||null,
+    scope:r.scope,overview:r.overview,handling:r.handling,limitations:r.limitations,
+    matchStatus:status==='matched'?'confirmed':'possible',related:r.identity==='related',
+    currentStatusVerified:false
+  }))};
+}
+function renderRagEvidence(){
+  const box=$('ragResults');box.replaceChildren();
+  const result=state.historyEvidence;
+  if(!result){addText(box,'p','点击检索读取 GitHub 项目仓库维护的历史资料。只有你主动点击时才访问公开资料地址。','help');return}
+  const intro=addText(box,'p',
+    '已查询仓库 '+result.libraryCount+' 条历史记录。'+
+    (result.status==='matched'?'主体匹配，仍仅为历史记录，不证明当前房屋状况。':
+     result.status==='ambiguous'?'匹配存在歧义，仅展示可能关联记录，请核对城市、区县与主体。':
+     '当前资料库未匹配；不代表该房屋没有问题。'),'help');
+  intro.style.marginTop='10px';
+  for(const item of result.items){
+    const panel=document.createElement('div');panel.className='source-link';
+    addText(panel,'strong',item.id+' · '+item.communityName+' · '+(item.matchStatus==='confirmed'?'主体匹配':'待确认'));
+    addText(panel,'p',item.city+' '+item.district+' · '+(item.publisher||'来源待核对')+(item.date?' · '+item.date:' · 日期未明确'));
+    addText(panel,'p','历史问题：'+item.overview);
+    addText(panel,'p','涉及范围：'+item.scope);
+    addText(panel,'p','当时处理进展：'+item.handling);
+    addText(panel,'p','使用限制：'+item.limitations);
+    if(item.related)addText(panel,'p','仅关联联合项目成员，不能认定单个小区存在全部历史问题。');
+    addText(panel,'p','当前状态未独立核验，不能推断具体房间或当前隐患。');
+    if(isSafeURL(item.url)){
+      const a=addText(panel,'a','查看原始公开来源 ↗');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';
+    }
+    box.appendChild(panel);
+  }
+  if(result.items.length===20)addText(box,'p','匹配条目较多，最多展示前 20 条；请完善地点缩小范围。','help');
+}
+async function searchRagEvidence(){
+  const v=getValues();
+  if(!v.community){showToast('请先输入小区或楼盘名称');$('community').focus();return}
+  const btn=$('ragSearchBtn');btn.disabled=true;btn.textContent='正在读取仓库资料...';
+  try{
+    const rows=await loadRagLibrary();
+    const query={city:v.city,district:v.district,communityName:v.community};
+    // Ignore results if the user edited the location while loading.
+    const result=findRagEvidence(rows,query),now=getValues();
+    if(now.city!==v.city||now.district!==v.district||now.community!==v.community)return;
+    state.historyEvidence=result;renderRagEvidence();renderEvidence();
+    showToast(result.status==='matched'?'已找到历史公开资料（不代表当前隐患）':
+      result.status==='no_match'?'资料库未命中，请勿当作安全结论':'已找到可能关联资料，请核对同名主体');
+  }catch(e){
+    state.historyEvidence=null;renderRagEvidence();
+    showToast('历史资料查询失败：'+safeShort(e?.message||'网络问题',130));
+  }finally{btn.disabled=false;btn.textContent='▣ 检索仓库历史资料'}
+}
+function clearRagEvidence(){state.historyEvidence=null;renderRagEvidence();renderEvidence()}
+
 async function locate(){const v=getValues();const q=[v.city,v.district,v.community].filter(Boolean).join(' ');if(!q){showToast('请先输入城市、区县或楼盘名称');return}if(mapAbort)mapAbort.abort();const controller=new AbortController();mapAbort=controller;putText('mapInfo','正在用 OpenStreetMap Nominatim 搜索：'+q);try{const u=new URL('https://nominatim.openstreetmap.org/search');u.searchParams.set('q',q);u.searchParams.set('format','jsonv2');u.searchParams.set('limit','3');u.searchParams.set('addressdetails','1');u.searchParams.set('accept-language','zh-CN');const resp=await fetch(u.toString(),{signal:controller.signal,headers:{Accept:'application/json'},referrerPolicy:'no-referrer'});if(!resp.ok)throw Error('地理服务返回 '+resp.status);const rows=await resp.json();if(!Array.isArray(rows)||!rows.length){putText('mapInfo','未找到可核实的地图位置，请补充城市/区县或核对楼盘名称。');return}const row=rows[0];const lat=Number(row.lat),lon=Number(row.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw Error('定位坐标不合法');state.location={lat,lon,display_name:safeShort(row.display_name,250)};putText('mapInfo','地图候选：'+state.location.display_name+'。仅为地理位置候选，需人工核对同名楼盘；并非房屋风险证据。');const delta=.008;const bbox=[lon-delta,lat-delta,lon+delta,lat+delta].join(',');const frame=document.createElement('iframe');frame.title='OpenStreetMap 地图';frame.loading='lazy';frame.referrerPolicy='no-referrer';frame.src='https://www.openstreetmap.org/export/embed.html?bbox='+encodeURIComponent(bbox)+'&layer=mapnik&marker='+encodeURIComponent(lat+','+lon);$('mapBox').replaceChildren(frame);if(state.report)state.report.locationMatch=state.location;showToast('已找到地图位置候选，请核对是否为同名楼盘')}catch(e){if(e.name==='AbortError')return;putText('mapInfo','地图服务当前不可用；仍可通过“查公开资料”打开外部搜索。'+safeShort(e.message,90))}finally{if(mapAbort===controller)mapAbort=null}}
 function webSearch(){const v=getValues();const q=[v.city,v.district,v.community,'房屋 装修 投诉 违规隔断'].filter(Boolean).join(' ');if(!v.community&&!v.city){showToast('请先输入城市或楼盘名称');return}window.open('https://www.bing.com/search?q='+encodeURIComponent(q),'_blank','noopener,noreferrer')}
-function init(){renderPhotos();renderReport();$('topUpload').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('demoBtn').onclick=syntheticDemo;$('analyzeBtn').onclick=analyze;$('cancelBtn').onclick=()=>state.abort?.abort('manual');$('clearBtn').onclick=()=>{if(state.abort)state.abort.abort('manual');for(const p of state.photos)if(p.preview.startsWith('blob:'))URL.revokeObjectURL(p.preview);state.photos=[{id:'sample',name:'演示空间 · 合成照片',dataUrl:DEFAULT_IMG,preview:DEFAULT_IMG,isDemo:true,width:1536,height:1024}];state.index=0;state.sources=[];state.location=null;$('mapBox').replaceChildren();renderSources();renderPhotos();clearReportOnly();renderPhotoStage();showToast('已清空照片和报告；Key 未自动清除，可单独删除。')};$('keyClearBtn').onclick=()=>{$('apiKey').value='';$('keyState').classList.remove('ok');putText('keyState','● 本地静态版');showToast('已清除 Key')};$('apiKey').addEventListener('input',()=>{const has=!!$('apiKey').value.trim();$('keyState').classList.toggle('ok',has);$('keyState').textContent=has?'● Key 已就绪（仅内存）':'● 本地静态版'});$('toggleKey').onclick=()=>{const k=$('apiKey');k.type=k.type==='password'?'text':'password';putText('toggleKey',k.type==='password'?'显示':'隐藏')};
+function init(){renderPhotos();renderReport();renderRagEvidence();$('ragSearchBtn').onclick=()=>void searchRagEvidence();for(const id of ['city','district','community'])$(id).addEventListener('input',clearRagEvidence);$('topUpload').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('demoBtn').onclick=syntheticDemo;$('analyzeBtn').onclick=analyze;$('cancelBtn').onclick=()=>state.abort?.abort('manual');$('clearBtn').onclick=()=>{if(state.abort)state.abort.abort('manual');for(const p of state.photos)if(p.preview.startsWith('blob:'))URL.revokeObjectURL(p.preview);state.photos=[{id:'sample',name:'演示空间 · 合成照片',dataUrl:DEFAULT_IMG,preview:DEFAULT_IMG,isDemo:true,width:1536,height:1024}];state.index=0;state.sources=[];state.location=null;state.historyEvidence=null;renderRagEvidence();$('mapBox').replaceChildren();renderSources();renderPhotos();clearReportOnly();renderPhotoStage();showToast('已清空照片和报告；Key 未自动清除，可单独删除。')};$('keyClearBtn').onclick=()=>{$('apiKey').value='';$('keyState').classList.remove('ok');putText('keyState','● 本地静态版');showToast('已清除 Key')};$('apiKey').addEventListener('input',()=>{const has=!!$('apiKey').value.trim();$('keyState').classList.toggle('ok',has);$('keyState').textContent=has?'● Key 已就绪（仅内存）':'● 本地静态版'});$('toggleKey').onclick=()=>{const k=$('apiKey');k.type=k.type==='password'?'text':'password';putText('toggleKey',k.type==='password'?'显示':'隐藏')};
 $('compareToggle').onclick=()=>{state.compare=!state.compare;$('compareToggle').classList.toggle('on',state.compare);$('compareToggle').setAttribute('aria-pressed',String(state.compare));$('stage').classList.toggle('no-compare',!state.compare);renderPhotoStage()};$('resetSlider').onclick=()=>{$('stage').style.setProperty('--split','52%');if(!state.compare)$('compareToggle').click()};let dragging=false;const handle=$('compareHandle');handle.addEventListener('pointerdown',e=>{dragging=true;handle.setPointerCapture(e.pointerId);e.preventDefault()});handle.addEventListener('pointermove',e=>{if(!dragging)return;const rect=$('stage').getBoundingClientRect();const pct=Math.max(8,Math.min(92,(e.clientX-rect.left)/rect.width*100));$('stage').style.setProperty('--split',pct+'%')});handle.addEventListener('pointerup',()=>dragging=false);handle.addEventListener('pointercancel',()=>dragging=false);handle.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const cur=parseFloat($('stage').style.getPropertyValue('--split'))||52;$('stage').style.setProperty('--split',Math.max(8,Math.min(92,cur+(e.key==='ArrowLeft'?-5:5)))+'%')}});
 $('zoomBtn').onclick=()=>{const el=document.createElement('div');addText(el,'h3','照片预览 · '+activePhoto().name);const image=document.createElement('img');image.src=activePhoto().preview;image.alt=activePhoto().name;el.appendChild(image);openModal(el)};$('modalClose').onclick=()=>$('modal').classList.remove('show');$('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('show')});document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').classList.remove('show')});
 $('downloadBtn').onclick=()=>{const r=reportExport();if(r){downloadObject(r,'antochuanchuan-report.json');showToast('已下载 JSON 报告；其中可能包含你填写的楼盘位置')}};$('favoriteBtn').onclick=()=>{state.favorite=!state.favorite;$('favoriteBtn').classList.toggle('saved',state.favorite);putText('favText',state.favorite?'已收藏':'收藏');showToast(state.favorite?'已在当前页面收藏（刷新后失效）':'已取消收藏')};$('shareBtn').onclick=async()=>{const content=makeSummary();try{if(navigator.share){await navigator.share({title:'ANTIchuanchuan 房屋观察',text:content})}else if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(content);showToast('已复制不含 API Key 的文字摘要')}else{const el=document.createElement('div');addText(el,'h3','分享摘要');const pre=addText(el,'pre',content);openModal(el)}}catch(e){if(e.name!=='AbortError')showToast('分享未完成')}};$('projectBtn').onclick=()=>{const r=reportExport();if(r){downloadObject(r,'antochuanchuan-project.json');showToast('已导出项目记录 JSON（可自行保管；本地不持久存储）')}};$('printBtn').onclick=()=>{if(!state.report){showToast('请先识别后再打印报告');return}window.print()};$('locateBtn').onclick=locate;$('searchWebBtn').onclick=webSearch;for(const name of ['city','district','community'])$(name).addEventListener('input',()=>{if(state.location){state.location=null;$('mapBox').replaceChildren();putText('mapInfo','楼盘信息已修改，请重新定位并核对同名地点。')}});
