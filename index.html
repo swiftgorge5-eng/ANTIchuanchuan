@@ -148,7 +148,7 @@ async function loadRagLibrary(){
     for(const block of blocks){
       const id=/^## (SH\d{3,})｜/m.exec(block);
       if(!id||id.index!==0)continue;
-      const match=/^`json[ \t]*\n([\s\S]*?)\n```/m.exec(block);
+      const match=/^`{3}json[ \t]*\n([\s\S]*?)\n`{3}/m.exec(block);
       if(!match)throw Error('历史资料格式不正确：缺少 JSON');
       const meta=JSON.parse(match[1]);
       if(meta.id!==id[1]||seen.has(meta.id)||!meta.city||!meta.district||!meta.entity_name||
