@@ -183,3 +183,96 @@ fieldset:disabled { opacity: 0.65; }
   .panel { border: 0; padding: 0; }
   a[href]::after { content: " (" attr(href) ")"; font-size: 0.75rem; }
 }
+
+/* ---- 地图选点（高德 JS API，懒加载） ---- */
+.map-pick { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px dashed var(--line); }
+.map-pick-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
+.map-pick-head span { font-weight: 650; }
+
+.map-dialog {
+  border: 0;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: min(760px, 94vw);
+  background: var(--paper-2);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.map-dialog::backdrop { background: rgba(20, 16, 12, 0.62); }
+.map-dialog-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+
+.map-canvas-wrap {
+  position: relative;
+  height: min(54vh, 400px);
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: #e6ecee;
+}
+.map-canvas { width: 100%; height: 100%; }
+
+.map-crosshair { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+/* 竖线中间留空，避免把「我的位置」蓝点劈成两半 */
+.map-crosshair span {
+  position: relative;
+  width: 2px;
+  height: 34px;
+  background: linear-gradient(
+    to bottom,
+    var(--teal) 0 10px,
+    transparent 10px 24px,
+    var(--teal) 24px 34px
+  );
+  box-shadow: none;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9));
+}
+.map-crosshair span::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 2px solid var(--teal);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 2px 8px rgba(14, 92, 89, 0.35);
+}
+/* 「我的位置」自定义图标：不被中心准星完全遮住 */
+.my-location-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #1a6ee0;
+  box-shadow: 0 0 0 4px rgba(26, 110, 224, 0.22), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.map-veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 253, 248, 0.72);
+  color: var(--teal);
+  font-weight: 600;
+}
+.map-result { margin-top: 0.7rem; min-height: 4.2rem; }
+.map-place { margin: 0; font-size: 1.05rem; font-weight: 650; }
+.map-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }
+.map-config { padding: 0.4rem 0; }
+.map-config pre {
+  overflow-x: auto;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: #f4efe4;
+  font-size: 0.85rem;
+}
+.map-config code { padding: 0 0.25rem; border-radius: 0.3rem; background: #f4efe4; }
+@media (max-width: 860px) { .map-canvas-wrap { height: 46vh; } }
+
+/* 真实模式的发送同意勾选 */
+.consent-line { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.6rem; font-size: 0.86rem; color: var(--muted); }
+.consent-line input { width: auto; margin-top: 0.2rem; }
+
