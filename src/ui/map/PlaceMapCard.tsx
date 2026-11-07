@@ -65,6 +65,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
   const geocoderRef = useRef<AmapGeocoder | null>(null);
   const placeSearchRef = useRef<AmapPlaceSearch | null>(null);
   const myDotRef = useRef<AmapMarker | null>(null);
+  const pinRef = useRef<AmapMarker | null>(null);
   const accuracyRef = useRef<AmapCircle | null>(null);
   const debounceRef = useRef(0);
   const locateAbortRef = useRef<AbortController | null>(null);
@@ -79,6 +80,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [pinPos, setPinPos] = useState<{ lng: number; lat: number } | null>(null);
   const [candidates, setCandidates] = useState<{ name: string; address: string; lng: number; lat: number }[]>([]);
 
   function resolveAt(lng: number, lat: number): void {
@@ -172,6 +174,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
     geocoderRef.current = null;
     placeSearchRef.current = null;
     myDotRef.current = null;
+    pinRef.current = null;
     accuracyRef.current = null;
   }
 
@@ -239,6 +242,7 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
     setLocateProgress("");
     setCandidates([]);
     setSearching(false);
+    setPinPos(null);
   }
 
   /** 把 WGS-84 转成高德坐标；转不了就报错，绝不把原始坐标直接画在 GCJ-02 底图上。 */
@@ -336,13 +340,12 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
         }
       }
       setLocateInfo({ accuracy, kind: "html5", samples: samples.length });
-      // 误差太大时不要硬把地图跳过去，避免"看起来很准"的误导。
+      // 一定要把画面拉回自己所在位置：定位成功却停在原处，用户会以为没生效。
+      map.setCenter([lng, lat]);
+      map.setZoom(17);
+      map.resize();
       if (accuracy > 100) {
-        setMessage("当前定位偏差较大（超过 100 米），已保留蓝点但不自动居中，请用准星或直接输入小区名。");
-      } else {
-        map.setCenter([lng, lat]);
-        map.setZoom(17);
-        map.resize();
+        setMessage("定位偏差较大（超过 100 米），画面已移到蓝点，但请用准星或直接输入小区名核对。");
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "定位失败，请直接输入小区名。");
@@ -352,10 +355,32 @@ export function PlaceMapCard({ value, disabled, onApply }: PlaceMapCardProps) {
     }
   }
 
+  /** 给搜索到的地点打一个持久图钉；再次搜索时移到新位置。 */
+  function pinSearchPoint(lng: number, lat: number): void {
+    const namespace = namespaceRef.current;
+    const map = mapRef.current;
+    if (!namespace || !map) return;
+    if (pinRef.current) {
+      pinRef.current.setPosition?.([lng, lat]);
+    } else {
+      const pin = new namespace.Marker({
+        position: [lng, lat],
+        anchor: "bottom-center",
+        zIndex: 215,
+        bubble: false,
+        content: '<div class="map-pin">搜索点</div>',
+      });
+      map.add(pin);
+      pinRef.current = pin;
+    }
+    setPinPos({ lng, lat });
+  }
+
   function centerOn(lng: number, lat: number): void {
     const map = mapRef.current;
     if (!map) return;
     setCandidates([]);
+    pinSearchPoint(lng, lat);
     map.setCenter([lng, lat]);
     map.setZoom(17);
     map.resize();
@@ -527,6 +552,21 @@ VITE_AMAP_SECURITY=你的安全密钥`}</pre>
               <button type="button" className="btn secondary" onClick={() => void locateMe()} disabled={locating || phase !== "ready"}>
                 {locating ? "定位中…" : "定位我的位置"}
               </button>
+              {pinPos && (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    const map = mapRef.current;
+                    if (!map) return;
+                    map.setCenter([pinPos.lng, pinPos.lat]);
+                    map.setZoom(17);
+                    map.resize();
+                  }}
+                >
+                  回到搜索点
+                </button>
+              )}
               <button type="button" className="btn" onClick={applyPicked} disabled={!picked}>
                 使用这个位置
               </button>

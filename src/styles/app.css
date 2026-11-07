@@ -309,3 +309,27 @@ fieldset:disabled { opacity: 0.65; }
   pointer-events: none;
 }
 
+
+/* 搜索点的持久图钉 */
+.map-pin {
+  position: relative;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(14, 92, 89, 0.35);
+}
+.map-pin::after {
+  content: ";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  background: var(--teal);
+  transform: rotate(45deg);
+}
+
