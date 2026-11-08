@@ -83,9 +83,11 @@ npm run dev
 
 ```powershell
 # 1. 确认本机 .env.local 里有 VITE_AMAP_KEY / VITE_AMAP_SECURITY
-npm run build
+npm run build:deploy
 # 2. 把 dist/ 的内容覆盖到 gh-pages 分支（保留 .nojekyll）后推送
 ```
+
+`build:deploy` 会先检查高德 Key：没有 Key 直接报错退出，避免把“地图不可用”的构建推到线上（只做本地预览用 `npm run build` 即可）。
 
 | 注意 | 说明 |
 |---|---|
