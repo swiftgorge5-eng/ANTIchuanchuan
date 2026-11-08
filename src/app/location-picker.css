@@ -1,0 +1,212 @@
+/* 地图选点弹层：沿用队友新版前端的色板与圆角，不引入第二套视觉。 */
+.mp-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 0;
+  border: 0;
+  background: var(--color-page, #f1f6fa);
+  color: var(--color-text, #172a3a);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mp-dialog[open] {
+  display: flex;
+}
+.mp-dialog::backdrop {
+  background: rgba(23, 42, 58, 0.5);
+}
+
+.mp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background: var(--color-card, #fff);
+}
+.mp-close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-input, #f4f8fb);
+  color: var(--color-text-secondary, #637587);
+  font-size: 20px;
+  line-height: 1;
+}
+.mp-search {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 4px 4px 10px;
+  border-radius: 12px;
+  background: var(--color-input, #f4f8fb);
+}
+.mp-search-icon {
+  color: var(--color-text-tertiary, #8b9aa8);
+  font-size: 16px;
+}
+.mp-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 0.875rem;
+  color: inherit;
+  padding: 6px 0;
+}
+.mp-search button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 12px;
+  background: var(--color-brand, #356f89);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.mp-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 240px;
+  overflow: hidden;
+}
+.mp-canvas {
+  position: absolute;
+  inset: 0;
+  background: #e8eff4;
+}
+.mp-cross {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.mp-cross span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-brand-dark, #24566f);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.92),
+    0 0 0 6px rgba(36, 86, 111, 0.28);
+}
+.mp-tip {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 74px;
+  margin: 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(23, 42, 58, 0.74);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
+.mp-tip[hidden] {
+  display: none;
+}
+.mp-tip[data-tone="error"] {
+  background: rgba(199, 70, 70, 0.92);
+}
+.mp-locate {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-card, #fff);
+  color: var(--color-brand-dark, #24566f);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-card, 0 3px 14px rgba(35, 79, 102, 0.06));
+}
+.mp-locate-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.mp-sheet {
+  flex: 0 0 auto;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  background: var(--color-card, #fff);
+  border-radius: 18px 18px 0 0;
+  box-shadow: var(--shadow-nav, 0 -3px 20px rgba(35, 79, 102, 0.065));
+}
+.mp-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  color: var(--color-text-tertiary, #8b9aa8);
+}
+.mp-name {
+  display: block;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+.mp-address,
+.mp-meta {
+  margin: 3px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #637587);
+}
+.mp-meta:empty,
+.mp-address:empty {
+  display: none;
+}
+.mp-use {
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: var(--radius-button, 13px);
+  background: var(--gradient-button, linear-gradient(160deg, #4c91ae, #24566f));
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+.mp-use:disabled {
+  opacity: 0.45;
+}
+.mp-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--color-text-tertiary, #8b9aa8);
+}
+
+/* 地图上的本人位置与搜索图钉 */
+.mp-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a6ee0;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(26, 110, 224, 0.35);
+}
+.mp-pin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-high, #c74646);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(23, 42, 58, 0.35);
+}

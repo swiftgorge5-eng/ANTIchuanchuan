@@ -1,8 +1,7 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 
+// 界面是队友的单文件前端拆分出来的 vanilla 模块，不再需要 React 插件。
 export default defineConfig({
-  plugins: [react()],
   base: "./",
   build: {
     outDir: "dist",
