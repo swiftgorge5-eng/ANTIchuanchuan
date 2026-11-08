@@ -11,7 +11,7 @@ const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
 const clean=value=>String(value??'').normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 const formatTime=value=>new Date(value).toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const uid=()=>globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
-const state={tab:'photo',page:'photo',confirmingPhotos:false,photos:[],uploadInitialized:false,uploadRoom:'',photoCommunity:'',photoError:'',reading:false,job:null,photoReport:null,city:'上海',query:'',searchDistrict:'',districtExpanded:false,searched:false,results:[],searchSession:uid(),searchReports:new Map(),records:[],recordsLoading:true,recordError:'',filter:'all',report:null,origin:null,scroll:{photo:0,search:0,records:0},saveStates:new Map()};
+const state={tab:'photo',page:'photo',confirmingPhotos:false,photos:[],uploadInitialized:false,uploadRoom:'',photoCommunity:'',photoPlace:null,photoError:'',reading:false,job:null,photoReport:null,city:'上海',query:'',searchDistrict:'',districtExpanded:false,searched:false,results:[],searchSession:uid(),searchReports:new Map(),records:[],recordsLoading:true,recordError:'',filter:'all',report:null,origin:null,scroll:{photo:0,search:0,records:0},saveStates:new Map()};
 let dbPromise,toastTimer,toastCallback,zoom=1,searchSequence=0;
 function db(){if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{if(!window.indexedDB){reject(new Error('当前浏览器不支持本机记录'));return;}const request=indexedDB.open('homesafe-mobile-v1',1);request.onupgradeneeded=()=>request.result.createObjectStore('reports',{keyPath:'id'});request.onsuccess=()=>{const result=request.result;result.onversionchange=()=>{result.close();dbPromise=null;};resolve(result);};request.onerror=()=>{dbPromise=null;reject(request.error);};request.onblocked=()=>{dbPromise=null;reject(new Error('请关闭其他打开的本页面后重试'));};});return dbPromise;}
 async function storage(mode,operation){const database=await db();return new Promise((resolve,reject)=>{const tx=database.transaction('reports',mode);let result;const request=operation(tx.objectStore('reports'));request.onsuccess=()=>{result=request.result;};tx.oncomplete=()=>resolve(result);tx.onabort=()=>reject(tx.error||new Error('存储操作未完成'));tx.onerror=()=>reject(tx.error||new Error('存储失败'));});}
@@ -79,7 +79,9 @@ function openTagMapPicker(){
  picker.open({initial:input?input.value:'',onPick(place){
   if(!input)return;
   input.value=(place&&(place.name||place.address))||'';
+  photoTag.place={lng:place.lng,lat:place.lat,address:place.address||''};
   updatePhotoTagSave();
+  showPhotoTag('idle');
   document.querySelector('[data-action="tag-map"]')?.focus({preventScroll:true});
  }});
 }
@@ -162,7 +164,7 @@ function uploadPage(){
    <button type="button" class="btn confirm-primary" data-action="album" ${disabled}>选择照片</button>
   </section>`;
  return `
-  <button class="jt-entry" type="button" data-action="tag-open" ${busy?'disabled':''}><span class="jt-icon">${icon('pin')}</span><span class="jt-entry-copy">${state.photoCommunity?'<small>小区标签</small>'+escapeHtml(state.photoCommunity):'小区标签'}</span><span class="jt-action">${state.photoCommunity?'修改':'添加'}${photoTagArrow}</span></button>
+  <button class="jt-entry" type="button" data-action="tag-open" ${busy?'disabled':''}><span class="jt-icon">${icon('pin')}</span><span class="jt-entry-copy">${state.photoCommunity?'<small>小区标签'+(state.photoPlace?' · 已记录位置':'')+'</small>'+escapeHtml(state.photoCommunity):'小区标签'}</span><span class="jt-action">${state.photoCommunity?'修改':'添加'}${photoTagArrow}</span></button>
   ${photoArea}
   <section class="confirm-spaces" aria-labelledby="confirm-spaces-heading">
    <div class="row between"><h2 id="confirm-spaces-heading">按空间添加</h2><button type="button" class="btn text confirm-camera" data-action="camera" ${disabled}>${icon('camera')}拍照</button></div>
@@ -172,7 +174,7 @@ function uploadPage(){
   ${state.job ? `<div class="progress" role="status"><div class="row"><span class="spinner"></span><strong>${state.job.demo ? '正在生成示例报告' : '正在分析照片'}</strong></div><button class="btn text" data-action="cancel">取消${state.job.demo ? '演示' : '分析'}</button></div>` : `<div class="confirm-dock">${analysisButton()}</div>`}`;
 }
 const photoTagArrow='<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-const photoTag={allowed:false,controller:null,status:'idle',candidates:[],selected:-1,sample:false};
+const photoTag={allowed:false,controller:null,status:'idle',candidates:[],selected:-1,sample:false,place:null};
 const photoTagExamples=[
  {name:'松庭里',address:'普陀区 · 松庭路 18 弄',distance:90},
  {name:'松庭里东区',address:'普陀区 · 松庭路 36 弄',distance:160},
@@ -196,17 +198,18 @@ function showPhotoTag(status){
  document.querySelector('[data-action="tag-locate"]').disabled=busy;
  const result=$('photo-tag-result');
  if(status==='list'){
+  const placeNote=photoTag.place?'已记录位置 · 高德地图':(photoTag.sample?'高德地图 · 示例':'高德地图');
   const rows=photoTag.candidates.map((candidate,index)=>{
    const selected=index===photoTag.selected;
    return `<button type="button" class="jt-row" data-action="tag-pick" data-tag-index="${index}" aria-pressed="${selected}"><div><strong>${escapeHtml(candidate.name)}</strong>${candidate.address?'<small>'+escapeHtml(candidate.address)+'</small>':''}</div>${Number.isFinite(candidate.distance)?'<span class="jt-distance">约 '+Math.round(candidate.distance)+' 米</span>':''}<span class="jt-circle" aria-hidden="true">${selected?icon('check'):''}</span></button>`;
   });
-  result.innerHTML=`<section class="jt-section" aria-label="附近小区"><div class="jt-section-title"><strong>附近小区</strong><span class="jt-muted">${photoTag.sample?'高德地图 · 示例':'高德地图'}</span></div>${rows.join('')}</section>`;
+  result.innerHTML=`<section class="jt-section" aria-label="附近小区"><div class="jt-section-title"><strong>附近小区</strong><span class="jt-muted">${placeNote}</span></div>${rows.join('')}</section>`;
   return;
  }
  const messages={
   denied:['未开启定位权限','可在浏览器设置中开启，也可以手动填写。'],
   failed:['暂时无法获取位置','可以重新定位，或直接手动填写。'],
-  empty:['附近暂未找到小区','可以手动填写小区名称。'],
+  empty:['附近暂未找到小区','位置已经记下来了，可以手动填写名称。'],
   unavailable:['定位服务尚未接入','可以手动填写小区名称。'],
   loading:['正在查找附近小区','']
  };
@@ -216,6 +219,7 @@ function showPhotoTag(status){
 
 function openPhotoTag(){
  photoTag.selected=-1;
+ photoTag.place=state.photoPlace?{...state.photoPlace}:null;
  $('photo-tag-name').value=state.photoCommunity;
  updatePhotoTagSave();
  showPhotoTag('idle');
@@ -224,35 +228,40 @@ function openPhotoTag(){
 
 async function lookupPhotoTag(){
  stopPhotoTagLookup();
- const service=window.HomeSafeCommunityService;
- const sample=state.photos.some(photo=>photo.sample)&&!service;
- if(!sample&&!service){showPhotoTag('unavailable');return;}
+ const picker=window.HomeSafeLocationPicker;
+ const sample=state.photos.some(photo=>photo.sample)&&!picker;
+ if(!sample&&!picker){showPhotoTag('unavailable');return;}
  const controller=new AbortController();
  photoTag.controller=controller;
- photoTag.selected=-1;
  photoTag.sample=sample;
  showPhotoTag('loading');
- const signal=controller.signal;
- // The team can supply nearby({signal}) when the location service is connected.
- // It returns candidates with name, optional address and optional distance in meters.
- let timer;
- const deadline=new Promise((resolve,reject)=>{
-  timer=setTimeout(()=>sample?resolve(photoTagExamples):reject(new Error('定位超时')),sample?650:15000);
-  signal.addEventListener('abort',()=>reject(new DOMException('已取消','AbortError')),{once:true});
- });
  try{
-  const response=sample?await deadline:await Promise.race([Promise.resolve().then(()=>service.nearby({signal})),deadline]);
+  let candidates=[];
+  if(sample){
+   await new Promise((resolve,reject)=>{
+    const timer=setTimeout(resolve,650);
+    controller.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('已取消','AbortError'));},{once:true});
+   });
+   candidates=photoTagExamples;
+  }else{
+   const located=await picker.locate();
+   candidates=Array.isArray(located.candidates)?located.candidates:[];
+   photoTag.place={lng:located.lng,lat:located.lat,address:located.address||'',accuracy:located.accuracy};
+  }
   if(photoTag.controller!==controller||!$('photo-tag-sheet').open)return;
-  if(!Array.isArray(response))throw new TypeError('小区候选格式不正确');
-  photoTag.candidates=response.filter(item=>typeof item?.name==='string'&&item.name.trim()).slice(0,3)
+  photoTag.candidates=candidates.filter(item=>typeof item?.name==='string'&&item.name.trim()).slice(0,3)
    .map(item=>({...item,name:item.name.trim().slice(0,60)}));
+  const input=$('photo-tag-name');
+  const suggestion=(photoTag.candidates[0]&&photoTag.candidates[0].name)||(photoTag.place&&photoTag.place.address)||'';
+  if(!input.value.trim()&&suggestion)input.value=suggestion;
+  photoTag.selected=photoTag.candidates.length?0:-1;
+  updatePhotoTagSave();
   showPhotoTag(photoTag.candidates.length?'list':'empty');
  }catch(error){
   if(photoTag.controller!==controller||!$('photo-tag-sheet').open)return;
   const denied=error?.code===1||error?.code==='PERMISSION_DENIED'||error?.name==='NotAllowedError';
   showPhotoTag(denied?'denied':'failed');
  }finally{
-  clearTimeout(timer);
   if(photoTag.controller===controller)stopPhotoTagLookup();
  }
 }
@@ -276,7 +285,9 @@ $('photo-tag-name').addEventListener('input',()=>{
 });
 $('photo-tag-form').addEventListener('submit',event=>{
  event.preventDefault();
- state.photoCommunity=$('photo-tag-name').value.trim();
+ const tagLabel=$('photo-tag-name').value.trim();
+ state.photoCommunity=tagLabel;
+ state.photoPlace=tagLabel&&photoTag.place?{...photoTag.place}:null;
  stopPhotoTagLookup();
  $('photo-tag-sheet').close();
  render();
@@ -289,8 +300,9 @@ $('photo-tag-sheet').addEventListener('close',()=>{
 async function readPhoto(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error('读取失败'));reader.onload=()=>{const image=new Image();image.onerror=()=>reject(new Error('照片无法解码'));image.onload=()=>{try{const scale=Math.min(1,1600/Math.max(image.width,image.height));const canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);resolve({id:uid(),name:file.name,mimeType:'image/jpeg',dataUrl:canvas.toDataURL('image/jpeg',.86)});}catch(error){reject(error);}};image.src=reader.result;};reader.readAsDataURL(file);});}
 async function addPhotos(files,room){if(!files.length||state.reading||state.job)return;state.confirmingPhotos=true;state.reading=true;state.photoError='';render();const errors=[];for(const file of files){if(state.photos.length>=6&&!state.photos.some(photo=>photo.sample)){errors.push('最多可选 6 张，超出的照片未添加。');break;}if(!['image/jpeg','image/png','image/webp'].includes(file.type)){errors.push(file.name+' 格式不支持，请选择 JPG、PNG 或 WebP。');continue;}if(file.size>15*1024*1024){errors.push(file.name+' 超过 15 MB，请压缩后重试。');continue;}try{const photo=await readPhoto(file);if(photoSpaces.includes(room))photo.room=room;state.photos=state.photos.filter(item=>!item.sample);state.photos.push(photo);}catch{errors.push(file.name+' 读取失败，请重新选择。');}}state.reading=false;state.photoError=[...new Set(errors)].join(' ');if(state.page==='photo')render();}
 const sampleObservation={title:'沙发背后的墙脚看不清',phenomenon:'沙发遮挡了部分墙面，照片无法显示被遮挡区域的情况。',limitation:'遮挡本身无法判断墙面是否受潮，需要到现场查看。',advice:'查看沙发背后和墙脚有无水印、起皮，询问是否发生过漏水或维修。',photoIndex:0,marker:{x:.22,y:.71}};
-async function analyze(demo=false,sampleRooms=null){if(state.job||state.reading)return;if(!demo&&!state.photos.length)return;if(!demo&&!window.HomeSafePhotoService){state.photoError='照片分析服务尚未接入，已选照片已保留。';if(state.page==='photo'){render();requestAnimationFrame(()=>document.querySelector('[role="alert"]')?.scrollIntoView({block:'nearest',behavior:'smooth'}));}return;}const controller=new AbortController();const job={id:uid(),demo,controller};const community=state.confirmingPhotos?state.photoCommunity:'';state.job=job;state.photoError='';if(state.page==='photo')render();try{let result;if(demo){await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,1600);controller.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('已取消','AbortError'));},{once:true});});result=sampleRooms?paFullReportData({type:'photo',demo:true,title:'房屋照片分析 · 示例',summary:'照片分析示例 · '+sampleRooms.join('、'),sampleRooms}):{type:'photo',demo:true,title:'客厅照片分析 · 示例',summary:'1 处建议现场核实，1 项照片中可见的信息。',photos:[{id:'sample',name:'客厅全景 · 示例',mimeType:'image/jpeg',dataUrl:SAMPLE_IMAGE}],observations:[sampleObservation],visible:[{title:'客厅右侧有落地窗',text:'可以看到窗户与自然光。全天采光仍需结合朝向、楼层及实际看房时间判断。'}]};}else{result=await window.HomeSafePhotoService.run({photos:state.photos.map(p=>({...p})),signal:controller.signal});if(!result||!Array.isArray(result.observations))throw new Error('服务返回的报告格式不完整');result={...result,type:'photo',demo:false,photos:state.photos.map(p=>({...p}))};}if(controller.signal.aborted||state.job!==job)return;const spaces=[...new Set(demo?(sampleRooms||['客厅']):(result.photos||[]).map(photo=>photo.room).filter(Boolean))];
-const report={...result,communityLabel:community,spaceCount:spaces.length,title:(community||'未标注小区')+' · '+spaces.length+' 个空间',summary:result.summary||spaces.join('、'),id:uid(),createdAt:new Date().toISOString()};state.job=null;state.photoReport=report;if(state.page==='photo')openReport(report);else{saveReport(report);toast('报告已生成，可在记录中查看');}}catch(error){if(state.job!==job)return;state.job=null;if(error.name!=='AbortError')state.photoError=error&&error.message?'分析未完成：'+error.message:'分析未完成，照片已保留。请检查服务连接后重试。';if(state.page==='photo')render();}}
+async function analyze(demo=false,sampleRooms=null){if(state.job||state.reading)return;if(!demo&&!state.photos.length)return;if(!demo&&!window.HomeSafePhotoService){state.photoError='照片分析服务尚未接入，已选照片已保留。';if(state.page==='photo'){render();requestAnimationFrame(()=>document.querySelector('[role="alert"]')?.scrollIntoView({block:'nearest',behavior:'smooth'}));}return;}const controller=new AbortController();const job={id:uid(),demo,controller};const community=state.confirmingPhotos?state.photoCommunity:'';
+ const communityPlace=state.confirmingPhotos&&state.photoPlace?{...state.photoPlace,label:community}:null;state.job=job;state.photoError='';if(state.page==='photo')render();try{let result;if(demo){await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,1600);controller.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('已取消','AbortError'));},{once:true});});result=sampleRooms?paFullReportData({type:'photo',demo:true,title:'房屋照片分析 · 示例',summary:'照片分析示例 · '+sampleRooms.join('、'),sampleRooms}):{type:'photo',demo:true,title:'客厅照片分析 · 示例',summary:'1 处建议现场核实，1 项照片中可见的信息。',photos:[{id:'sample',name:'客厅全景 · 示例',mimeType:'image/jpeg',dataUrl:SAMPLE_IMAGE}],observations:[sampleObservation],visible:[{title:'客厅右侧有落地窗',text:'可以看到窗户与自然光。全天采光仍需结合朝向、楼层及实际看房时间判断。'}]};}else{result=await window.HomeSafePhotoService.run({photos:state.photos.map(p=>({...p})),signal:controller.signal});if(!result||!Array.isArray(result.observations))throw new Error('服务返回的报告格式不完整');result={...result,type:'photo',demo:false,photos:state.photos.map(p=>({...p}))};}if(controller.signal.aborted||state.job!==job)return;const spaces=[...new Set(demo?(sampleRooms||['客厅']):(result.photos||[]).map(photo=>photo.room).filter(Boolean))];
+const report={...result,communityLabel:community,location:communityPlace,spaceCount:spaces.length,title:(community||'未标注小区')+' · '+spaces.length+' 个空间',summary:result.summary||spaces.join('、'),id:uid(),createdAt:new Date().toISOString()};state.job=null;state.photoReport=report;if(state.page==='photo')openReport(report);else{saveReport(report);toast('报告已生成，可在记录中查看');}}catch(error){if(state.job!==job)return;state.job=null;if(error.name!=='AbortError')state.photoError=error&&error.message?'分析未完成：'+error.message:'分析未完成，照片已保留。请检查服务连接后重试。';if(state.page==='photo')render();}}
 function cancelJob(){if(!state.job)return;const job=state.job;state.job=null;job.controller.abort();if(state.page==='photo')render();toast('已取消，已选照片保留');}
 function districtLabel(group){
  return group.district?.trim() || '区属未注明';
@@ -577,6 +589,18 @@ function paFindings(advantages,risks,checklist=''){
  return advantages.length||risks.length?`<section class="pa-report-section"><h2 class="pa-section-title">优势与风险</h2><div class="pa-findings">${advantages.map(item=>row(item,false)).join('')}${risks.map((item,index)=>row(item,true,index===0?checklist:'')).join('')}</div></section>`:'';
 }
 
+function photoLocationCard(report){
+ const location=report.location;
+ const label=report.communityLabel||(location&&location.label)||'';
+ if(!label&&!location)return '';
+ const hasPin=!!(location&&Number.isFinite(location.lng)&&Number.isFinite(location.lat));
+ return `<section class="pa-location-card">
+  <div class="pa-location-head"><span class="pa-location-icon">${icon('pin')}</span><div><small>小区标签</small><strong>${escapeHtml(label||'未命名标签')}</strong></div></div>
+  <p class="pa-location-note">${hasPin?'已记录位置，可以在地图上回看':'只打了标签，没有记录位置'}</p>
+  ${hasPin?`<button type="button" class="pa-location-btn" data-action="show-location">在地图上查看${icon('arrow')}</button>`:''}
+ </section>`;
+}
+
 function paOverview(report,model){
  const e=escapeHtml,rooms=model.rooms,photos=paGalleryPhotos(report,rooms);
  const fullExample=report.demo&&rooms.length===paSampleRooms.length;
@@ -597,6 +621,7 @@ function paOverview(report,model){
   <div class="pa-total"><div class="pa-total-value"><b>${model.score??'—'}</b>${model.score==null?'':'<span>/ 100</span>'}</div><div class="pa-total-copy"><strong>综合评分</strong><span>${model.score==null?'暂无评分':rooms.length+' 个空间的综合评分'}</span></div></div>
   ${model.score==null?'':paBar(model.score,'pa-total-bar')}
  </section>
+ ${photoLocationCard(report)}
  <div class="pa-wrap">
   <section class="pa-photo-block"><div class="pa-title-row"><h2 class="pa-section-title">整屋照片</h2>${photos.length>1?'<span class="pa-hint">点缩略图或滑动大图</span>':''}</div>${paGallery(photos,false)}</section>
   <section class="pa-report-section"><h2 class="pa-section-title">整屋评价</h2><div class="pa-text">${evaluation.map(text=>'<p>'+e(text)+'</p>').join('')}</div></section>
@@ -846,6 +871,7 @@ function communityReport(report){
   <h1>${escapeHtml(report.name)}</h1>
   <p>${escapeHtml([report.city,report.district,report.address].filter(Boolean).join(' · '))}</p>
   <div class="cr-hero-meta"><span>${report.items.length} 条历史问题记录</span><span class="cr-save-state" id="save-state" aria-live="polite">${communitySaveMarkup(report)}</span></div>
+  <button type="button" class="btn secondary cr-map" data-action="show-community-location">${icon('pin')}在地图上查看小区</button>
  </div></section>
  ${report.items.map(communityIssue).join('')}
  <details class="cr-more"><summary>更多操作 ${communityChevron}</summary><div><button class="btn secondary" data-action="download">导出 JSON</button><button class="btn secondary" data-action="print">打印 / PDF</button></div></details>`;
@@ -863,6 +889,23 @@ document.addEventListener('click',async event=>{const target=event.target.closes
  return;
 }if(target.dataset.candidate!==undefined){chooseCandidate(Number(target.dataset.candidate));return;}if(target.dataset.homeExample){openHomeExample(target.dataset.homeExample);return;}if(target.dataset.openRecord){const report=state.records.find(r=>r.id===target.dataset.openRecord);if(report){state.saveStates.set(report.id,'saved');openReport(report);}return;}if(target.dataset.delete){await deleteRecord(target.dataset.delete);return;}if(target.dataset.filter){state.filter=target.dataset.filter;render();return;}switch(target.dataset.action){
 case 'home-notices':$('home-notices').showModal();break;
+ case 'show-location':{
+  const report=state.report;
+  const location=report&&report.location;
+  const picker=window.HomeSafeLocationPicker;
+  if(!location||!Number.isFinite(location.lng)||!Number.isFinite(location.lat)){toast('这个标签没有记录位置');break;}
+  if(!picker||!picker.openViewer){toast('地图尚未准备好，请稍后再试');break;}
+  picker.openViewer({label:location.label||report.communityLabel||'小区标签',address:location.address,lng:location.lng,lat:location.lat});
+  break;
+ }
+ case 'show-community-location':{
+  const report=state.report;
+  const picker=window.HomeSafeLocationPicker;
+  if(!report||!picker||!picker.openViewerByName){toast('地图尚未准备好，请稍后再试');break;}
+  const address=[report.district,report.address].filter(Boolean).join(' ');
+  picker.openViewerByName(report.name,address).then(ok=>{if(!ok)toast('没有找到这个小区的坐标，可以先搜索小区名称');});
+  break;
+ }
 case 'tag-open':openPhotoTag();break;
 case 'tag-locate':if(photoTag.allowed)lookupPhotoTag();else $('photo-tag-permission').showModal();break;
 case 'tag-allow':photoTag.allowed=true;$('photo-tag-permission').close();lookupPhotoTag();break;

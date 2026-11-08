@@ -7,9 +7,9 @@
  * 流程：浏览器多次采样 -> 合并 -> WGS-84 转 GCJ-02 -> 高德「住宅区」周边搜索
  * -> 只保留像小区的点，按距离升序。拿不到就抛错，由界面提示手动填写。
  */
-import { loadAmap, type AmapNamespace, type NearbyPoi } from "../ui/map/amap.ts";
+import { loadAmap, type AmapNamespace } from "../ui/map/amap.ts";
 import { collectPosition, combineSamples, type PositionSample } from "../ui/map/geolocate.ts";
-import { cleanName, isResidentialPoi, type ResidentialPoi } from "../ui/map/reverse.ts";
+import { searchNearbyCommunities } from "./amap-nearby.ts";
 
 export interface NearbyCommunity {
   name: string;
@@ -20,7 +20,7 @@ export interface NearbyCommunity {
 const SEARCH_RADIUS_M = 2_000;
 const MAX_CANDIDATES = 5;
 
-function toAmapPosition(namespace: AmapNamespace, sample: PositionSample): Promise<[number, number]> {
+export function toAmapPosition(namespace: AmapNamespace, sample: PositionSample): Promise<[number, number]> {
   if (!namespace.convertFrom) return Promise.resolve([sample.lng, sample.lat]);
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -44,55 +44,6 @@ function toAmapPosition(namespace: AmapNamespace, sample: PositionSample): Promi
   });
 }
 
-function addressText(poi: NearbyPoi): string | undefined {
-  const raw = poi.address;
-  const text = Array.isArray(raw) ? raw.join("") : typeof raw === "string" ? raw : "";
-  return text.trim() || undefined;
-}
-
-function searchResidential(namespace: AmapNamespace, center: [number, number]): Promise<NearbyCommunity[]> {
-  const search = new namespace.PlaceSearch({ type: "住宅区", pageSize: 20, extensions: "base" });
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (items: NearbyCommunity[]) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(items);
-    };
-    const timer = window.setTimeout(() => finish([]), 6_000);
-    search.searchNearBy("住宅区", center, SEARCH_RADIUS_M, (status, result) => {
-      if (status !== "complete") {
-        finish([]);
-        return;
-      }
-      const pois: ResidentialPoi[] = (result.poiList?.pois ?? []).map((poi) => {
-        const raw = poi.distance;
-        const distance = typeof raw === "number" ? raw : Number.parseFloat(String(raw ?? ""));
-        return {
-          name: typeof poi.name === "string" ? poi.name : "",
-          distance: Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY,
-          type: typeof poi.type === "string" ? poi.type : undefined,
-        };
-      });
-      const seen = new Set<string>();
-      const items = pois
-        .filter((poi) => isResidentialPoi(poi))
-        .sort((left, right) => left.distance - right.distance)
-        .flatMap((poi) => {
-          const name = cleanName(poi.name);
-          const key = name.replace(/[\s（(].*$/u, "");
-          if (!name || seen.has(key)) return [];
-          seen.add(key);
-          const source = (result.poiList?.pois ?? []).find((item) => item.name === poi.name);
-          return [{ name, address: source ? addressText(source) : undefined, distance: Math.round(poi.distance) }];
-        })
-        .slice(0, MAX_CANDIDATES);
-      finish(items);
-    });
-  });
-}
-
 async function nearby(signal?: AbortSignal): Promise<NearbyCommunity[]> {
   const namespace = await loadAmap();
   const { samples, errorCode } = await collectPosition({ maxSamples: 3, maxWaitMs: 3_500 }, signal);
@@ -104,7 +55,8 @@ async function nearby(signal?: AbortSignal): Promise<NearbyCommunity[]> {
   const merged = combineSamples(samples);
   if (!merged) throw new Error("定位结果不可用");
   const center = await toAmapPosition(namespace, merged);
-  return searchResidential(namespace, center);
+  const hits = await searchNearbyCommunities(namespace, center, SEARCH_RADIUS_M, MAX_CANDIDATES);
+  return hits.map(({ name, address, distance }) => ({ name, address, distance }));
 }
 
 export interface HomeSafeCommunityService {

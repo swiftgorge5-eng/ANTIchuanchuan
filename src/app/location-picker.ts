@@ -1,11 +1,16 @@
 /**
- * 手机端地图选点弹层：把仓库里已经验证过的「高德地图 + 逆地理编码 + 住宅 POI 交叉验证」
- * 搬到队友新版前端的样式里。
+ * 手机端地图选点 / 位置回看。
  *
- * 交互和上一版一致：
+ * 三个入口共用一套高德逻辑：
+ *   - 「定位找小区」：open()
+ *   - 小区标签「在地图上选点」：open()
+ *   - 报告里的「在地图上看位置」：openViewer() / openViewerByName()
+ *   - 小区标签「使用当前位置」：locate()（不开地图，直接返回坐标 + 最近小区）
+ *
+ * 交互约定：
  *   - 拖动地图，准星固定在屏幕中央，松手后才识别（不边拖边闪）
  *   - 「定位」把画面拉回自己所在位置，蓝点代表本人位置，拖动不会改变它
- *   - 「搜索」按小区名定位；确认后把小区名带回上一页
+ *   - 回看时只显示标记与标签，不提供改点按钮
  */
 import {
   isAmapConfigured,
@@ -14,9 +19,12 @@ import {
   type AmapMap,
   type AmapNamespace,
   type AmapPlaceSearch,
+  type RegeocodeResult,
 } from "../ui/map/amap.ts";
 import { collectPosition, combineSamples } from "../ui/map/geolocate.ts";
 import { hasUsablePlace, resolvePlace, type PickedPlace, type ResidentialPoi } from "../ui/map/reverse.ts";
+import { searchNearbyCommunities, type NearbyCommunityHit } from "./amap-nearby.ts";
+import { toAmapPosition } from "./community-service.ts";
 
 /** 上海市人民广场：没有历史输入时的初始视野。 */
 const DEFAULT_CENTER: [number, number] = [121.4737, 31.2304];
@@ -28,11 +36,25 @@ export interface PickedLocation {
   address: string;
   city: string;
   district: string;
+  lng: number;
+  lat: number;
+}
+
+export interface LocatedPlace extends PickedLocation {
+  accuracy: number;
+  candidates: NearbyCommunityHit[];
 }
 
 export interface OpenLocationPickerOptions {
   initial?: string;
   onPick: (place: PickedLocation) => void;
+}
+
+export interface LocationViewerOptions {
+  label: string;
+  address?: string;
+  lng: number;
+  lat: number;
 }
 
 type Phase = "opening" | "ready" | "resolving" | "failed";
@@ -79,8 +101,28 @@ const MARKUP = `
 </div>
 `;
 
+const VIEWER_MARKUP = `
+<div class="mv-head">
+  <button type="button" class="mp-close" data-mv="close" aria-label="关闭位置">×</button>
+  <h2>小区位置</h2>
+  <span></span>
+</div>
+<div class="mv-body"><div class="mv-canvas" id="mv-canvas"></div></div>
+<div class="mv-sheet">
+  <p class="mp-eyebrow">小区标签</p>
+  <strong class="mp-name" id="mv-label"></strong>
+  <p class="mp-address" id="mv-address"></p>
+  <p class="mp-note">这是你给这套房打的标签和位置，报告会一起保留，方便回看。</p>
+  <button type="button" class="mp-use" data-mv="close">关闭</button>
+</div>
+`;
+
 function $(id: string): HTMLElement {
   return document.getElementById(id) as HTMLElement;
+}
+
+function escapeText(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 }
 
 function setPhase(next: Phase): void {
@@ -98,21 +140,22 @@ function setMessage(text: string, tone: "hint" | "error" = "hint"): void {
 }
 
 function renderPlace(): void {
-  const name = $("mp-name");
-  const address = $("mp-address");
-  const meta = $("mp-meta");
+  const nameEl = document.getElementById("mp-name") as HTMLElement | null;
+  const addressEl = document.getElementById("mp-address") as HTMLElement | null;
+  const metaEl = document.getElementById("mp-meta") as HTMLElement | null;
   const use = document.querySelector<HTMLButtonElement>('[data-mp="use"]');
+  if (!nameEl || !addressEl || !metaEl) return;
   const place = picked && hasUsablePlace(picked) ? picked : null;
   if (place) {
-    name.textContent = place.communityName || place.address || "已识别位置";
-    address.textContent = [place.city, place.district, place.address].filter(Boolean).join(" · ");
+    nameEl.textContent = place.communityName || place.address || "已识别位置";
+    addressEl.textContent = [place.city, place.district, place.address].filter(Boolean).join(" · ");
     const how = place.precision === "area" ? "命中小区的面" : place.precision === "nearby" ? "附近住宅点" : "只有门牌地址";
-    meta.textContent = place.distance != null ? `识别方式：${how} · 距离准星约 ${place.distance} 米` : `识别方式：${how}`;
+    metaEl.textContent = place.distance != null ? `识别方式：${how} · 距离准星约 ${place.distance} 米` : `识别方式：${how}`;
     if (use) use.disabled = false;
   } else {
-    name.textContent = "还没有识别到小区";
-    address.textContent = "";
-    meta.textContent = "";
+    nameEl.textContent = "还没有识别到小区";
+    addressEl.textContent = "";
+    metaEl.textContent = "";
     if (use) use.disabled = true;
   }
 }
@@ -132,63 +175,19 @@ function destroyMap(): void {
   resolveToken += 1;
 }
 
-function toAmapPosition(sample: { lng: number; lat: number }): Promise<[number, number]> {
-  const namespace = namespaceRef;
-  if (!namespace?.convertFrom) return Promise.resolve([sample.lng, sample.lat]);
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = window.setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        reject(new Error("坐标转换超时"));
-      }
-    }, 5_000);
-    namespace.convertFrom([sample.lng, sample.lat], "gps", (status, result) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      const location = status === "complete" ? result.locations?.[0] : undefined;
-      if (location && Number.isFinite(location.lng) && Number.isFinite(location.lat)) {
-        resolve([location.lng, location.lat]);
-      } else {
-        reject(new Error("坐标转换失败"));
-      }
-    });
-  });
-}
-
 function searchResidentialPois(center: [number, number], done: (pois: ResidentialPoi[]) => void): void {
-  const search = searcherRef;
-  if (!search) {
+  const namespace = namespaceRef;
+  if (!namespace) {
     done([]);
     return;
   }
-  let settled = false;
-  const finish = (items: ResidentialPoi[]) => {
-    if (settled) return;
-    settled = true;
-    window.clearTimeout(timer);
-    done(items);
-  };
-  const timer = window.setTimeout(() => finish([]), 4_000);
-  search.searchNearBy("住宅区", center, 300, (status, result) => {
-    if (status !== "complete") {
-      finish([]);
-      return;
-    }
-    finish(
-      (result.poiList?.pois ?? [])
-        .map((poi) => {
-          const raw = poi.distance;
-          const distance = typeof raw === "number" ? raw : Number.parseFloat(String(raw ?? ""));
-          return {
-            name: typeof poi.name === "string" ? poi.name : "",
-            distance: Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY,
-            type: typeof poi.type === "string" ? poi.type : undefined,
-          };
-        })
-        .filter((poi) => poi.name && Number.isFinite(poi.distance))
-        .sort((left, right) => left.distance - right.distance),
+  void searchNearbyCommunities(namespace, center, 300, 10).then((hits) => {
+    done(
+      hits.map((hit) => ({
+        name: hit.name,
+        distance: hit.distance ?? Number.POSITIVE_INFINITY,
+        type: hit.type,
+      })),
     );
   });
 }
@@ -246,7 +245,7 @@ async function locateMe(): Promise<void> {
       setMessage("定位结果不可用，请直接搜索小区名。", "error");
       return;
     }
-    const position = await toAmapPosition(merged);
+    const position = await toAmapPosition(namespace, merged);
     if (myMarker) {
       myMarker.setPosition?.(position);
     } else {
@@ -419,11 +418,14 @@ function ensureDialog(): HTMLDialogElement {
     if (action === "locate") void locateMe();
     if (action === "use") {
       if (!picked || !hasUsablePlace(picked)) return;
+      const center = map?.getCenter();
       const place: PickedLocation = {
         name: picked.communityName || picked.address,
         address: picked.address,
         city: picked.city,
         district: picked.district,
+        lng: center?.lng ?? DEFAULT_CENTER[0],
+        lat: center?.lat ?? DEFAULT_CENTER[1],
       };
       const handler = onPickHandler;
       element.close();
@@ -457,9 +459,136 @@ export function openLocationPicker(options: OpenLocationPickerOptions): void {
   void initMap(options.initial);
 }
 
+/**
+ * 只做一次定位，不打开地图：给小区标签的「使用当前位置」用。
+ * 返回坐标、精度和附近小区候选，由界面决定怎么填名字。
+ */
+export async function locateCurrent(): Promise<LocatedPlace> {
+  const namespace = await loadAmap();
+  const { samples, errorCode } = await collectPosition({ maxSamples: 3, maxWaitMs: 3_500 });
+  if (samples.length === 0) {
+    const error = new Error(errorCode === 1 ? "浏览器拒绝了定位权限" : "拿不到当前位置");
+    (error as Error & { code?: number }).code = errorCode;
+    throw error;
+  }
+  const merged = combineSamples(samples);
+  if (!merged) throw new Error("定位结果不可用");
+  const center = await toAmapPosition(namespace, merged);
+  const candidates = await searchNearbyCommunities(namespace, center, 2_000, 5);
+  const geocoder = new namespace.Geocoder({ extensions: "all", radius: 200 });
+  const regeocode = await new Promise<RegeocodeResult | null>((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), 5_000);
+    geocoder.getAddress(center, (status, result) => {
+      window.clearTimeout(timer);
+      resolve(status === "complete" ? result.regeocode ?? null : null);
+    });
+  });
+  const pois: ResidentialPoi[] = candidates.map((item) => ({
+    name: item.name,
+    distance: item.distance ?? Number.POSITIVE_INFINITY,
+    type: item.type,
+  }));
+  const place = resolvePlace(regeocode, pois);
+  return {
+    name: place?.communityName || candidates[0]?.name || place?.address || "",
+    address: place?.address || candidates[0]?.address || "",
+    city: place?.city || "",
+    district: place?.district || "",
+    lng: center[0],
+    lat: center[1],
+    accuracy: merged.accuracy,
+    candidates,
+  };
+}
+
+/* ---------------- 位置回看 ---------------- */
+
+let viewer: HTMLDialogElement | null = null;
+let viewerMap: AmapMap | null = null;
+
+function ensureViewer(): HTMLDialogElement {
+  if (viewer) return viewer;
+  const element = document.createElement("dialog");
+  element.className = "mv-dialog";
+  element.setAttribute("aria-label", "小区位置");
+  element.innerHTML = VIEWER_MARKUP;
+  document.body.appendChild(element);
+  element.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest('[data-mv="close"]')) element.close();
+  });
+  element.addEventListener("close", () => {
+    viewerMap?.destroy();
+    viewerMap = null;
+  });
+  viewer = element;
+  return element;
+}
+
+export async function openLocationViewer(options: LocationViewerOptions): Promise<void> {
+  const element = ensureViewer();
+  const labelEl = document.getElementById("mv-label");
+  const addressEl = document.getElementById("mv-address");
+  if (labelEl) labelEl.textContent = options.label || "未命名标签";
+  if (addressEl) addressEl.textContent = options.address || "";
+  if (!element.open) element.showModal();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const canvas = document.getElementById("mv-canvas");
+  if (!canvas) return;
+  try {
+    const namespace = await loadAmap();
+    const instance = new namespace.Map(canvas, {
+      zoom: 17,
+      center: [options.lng, options.lat],
+      viewMode: "2D",
+      resizeEnable: true,
+    });
+    viewerMap = instance;
+    const marker = new namespace.Marker({
+      position: [options.lng, options.lat],
+      anchor: "bottom-center",
+      zIndex: 200,
+      bubble: false,
+      content: `<div class="mv-marker"><span class="mv-marker-label">${escapeText(options.label || "我的标签")}</span><span class="mv-marker-dot"></span></div>`,
+    });
+    instance.add(marker);
+    instance.resize();
+  } catch (error) {
+    const addressEl2 = document.getElementById("mv-address");
+    if (addressEl2) addressEl2.textContent = error instanceof Error ? error.message : "地图加载失败";
+  }
+}
+
+/** 报告里只有小区名、没有坐标时，用名称反查一个位置再展示。 */
+export async function openLocationViewerByName(name: string, address?: string): Promise<boolean> {
+  const namespace = await loadAmap();
+  const geocoder = new namespace.Geocoder({ extensions: "all", radius: 200 });
+  const location = await new Promise<{ lng: number; lat: number } | null>((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), 6_000);
+    geocoder.getLocation(name, (status, result) => {
+      window.clearTimeout(timer);
+      const item = status === "complete" ? result.geocodes?.[0]?.location : undefined;
+      resolve(item && Number.isFinite(item.lng) && Number.isFinite(item.lat) ? item : null);
+    });
+  });
+  if (!location) return false;
+  await openLocationViewer({ label: name, address, lng: location.lng, lat: location.lat });
+  return true;
+}
+
 export function installLocationPicker(): void {
-  (window as unknown as { HomeSafeLocationPicker?: { open: typeof openLocationPicker } }).HomeSafeLocationPicker = {
+  const scope = window as unknown as {
+    HomeSafeLocationPicker?: {
+      open: typeof openLocationPicker;
+      locate: typeof locateCurrent;
+      openViewer: typeof openLocationViewer;
+      openViewerByName: typeof openLocationViewerByName;
+    };
+  };
+  scope.HomeSafeLocationPicker = {
     open: openLocationPicker,
+    locate: locateCurrent,
+    openViewer: openLocationViewer,
+    openViewerByName: openLocationViewerByName,
   };
 }
 

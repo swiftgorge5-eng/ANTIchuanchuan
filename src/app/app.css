@@ -815,3 +815,69 @@ input::placeholder{color:var(--muted);opacity:1;}
   color: var(--color-text-tertiary);
   font-size: 1rem;
 }
+
+/* 报告里的「小区标签 + 位置回看」卡片 */
+.pa-location-card {
+  margin: 0 16px 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card, 16px);
+  background: var(--color-card, #fff);
+  box-shadow: var(--shadow-card, 0 3px 14px rgba(35, 79, 102, 0.035));
+}
+.pa-location-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pa-location-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--color-brand-light, #e3eff5);
+  color: var(--color-brand-dark, #24566f);
+}
+.pa-location-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.pa-location-head small {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #8b9aa8);
+}
+.pa-location-head strong {
+  display: block;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.pa-location-note {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary, #637587);
+}
+.pa-location-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border, #dce6ee);
+  border-radius: 999px;
+  background: var(--color-input, #f4f8fb);
+  color: var(--color-brand-dark, #24566f);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.pa-location-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.cr-map {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
