@@ -26,7 +26,7 @@ interface ServiceInput {
 }
 
 interface ReportObservation {
-  type: "risk";
+  type: "risk" | "pending";
   title: string;
   phenomenon: string;
   limitation: string;
@@ -129,7 +129,15 @@ function buildReport(photos: ServicePhoto[], result: Awaited<ReturnType<ReturnTy
       continue;
     }
 
-    visible.push({ title: `${where} · ${copy.label}无法判断`, text: evidence, photoIndex });
+    // unknown 不是“优势”，也不能算风险：作为待现场核实的一项留给用户。
+    observations.push({
+      type: "pending",
+      title: `${where} · ${copy.label}无法判断`,
+      phenomenon: evidence,
+      limitation: copy.limitation,
+      advice: copy.advice,
+      photoIndex,
+    });
   }
 
   const summary = photos.length
