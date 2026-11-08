@@ -594,11 +594,10 @@ function photoLocationCard(report){
  const label=report.communityLabel||(location&&location.label)||'';
  if(!label&&!location)return '';
  const hasPin=!!(location&&Number.isFinite(location.lng)&&Number.isFinite(location.lat));
- return `<section class="pa-location-card">
-  <div class="pa-location-head"><span class="pa-location-icon">${icon('pin')}</span><div><small>小区标签</small><strong>${escapeHtml(label||'未命名标签')}</strong></div></div>
-  <p class="pa-location-note">${hasPin?'已记录位置，可以在地图上回看':'只打了标签，没有记录位置'}</p>
-  ${hasPin?`<button type="button" class="pa-location-btn" data-action="show-location">在地图上查看${icon('arrow')}</button>`:''}
- </section>`;
+ const head=`<div class="pa-location-head"><span class="pa-location-icon">${icon('pin')}</span><div><small>小区标签</small><strong>${escapeHtml(label||'未命名标签')}</strong></div></div>`;
+ const note=`<p class="pa-location-note">${hasPin?'已记录位置，点这里在地图上回看':'只打了标签，没有记录位置'}</p>`;
+ if(!hasPin)return `<section class="pa-location-card">${head}${note}</section>`;
+ return `<button type="button" class="pa-location-card pa-location-clickable" data-action="show-location" aria-label="在地图上查看小区标签${escapeHtml(label||'')}">${head}${note}<span class="pa-location-arrow">${icon('arrow')}</span></button>`;
 }
 
 function paOverview(report,model){

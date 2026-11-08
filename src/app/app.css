@@ -881,3 +881,24 @@ input::placeholder{color:var(--muted);opacity:1;}
   align-items: center;
   gap: 6px;
 }
+
+.pa-location-clickable {
+  display: block;
+  width: calc(100% - 32px);
+  text-align: left;
+  border: 0;
+  cursor: pointer;
+  position: relative;
+  padding-right: 44px;
+}
+.pa-location-clickable .pa-location-arrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-tertiary, #8b9aa8);
+}
+.pa-location-clickable .pa-location-arrow svg {
+  width: 16px;
+  height: 16px;
+}
