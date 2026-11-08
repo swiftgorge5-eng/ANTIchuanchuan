@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:deploy": "node scripts/check-deploy-env.mjs && tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

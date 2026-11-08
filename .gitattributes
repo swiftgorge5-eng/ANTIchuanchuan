@@ -1,0 +1,2 @@
+# Markdown 一律以 LF 检出：RAG 库按行解析，CRLF 会让切分失败
+*.md text eol=lf
