@@ -77,6 +77,23 @@ npm run dev
 
 线上演示地址：https://swiftgorge5-eng.github.io/ANTIchuanchuan/ （`gh-pages` 分支，域名已加入高德白名单）。
 
+## 部署（gh-pages）
+
+线上站点是 `gh-pages` 分支上的静态构建，**和 `main` 没有自动部署绑定**：合并 `main` 不会改动线上站点，需要手动发布。
+
+```powershell
+# 1. 确认本机 .env.local 里有 VITE_AMAP_KEY / VITE_AMAP_SECURITY
+npm run build
+# 2. 把 dist/ 的内容覆盖到 gh-pages 分支（保留 .nojekyll）后推送
+```
+
+| 注意 | 说明 |
+|---|---|
+| 构建时注入 | `VITE_AMAP_KEY` 是公开变量，会被打进 JS；线上包里已经有 Key，这是高德 JS API 的正常用法，靠**域名白名单**限制滥用 |
+| 不要提交 Key | `.env.local` 已被忽略；仓库是公开的，Key 一旦进历史就删不掉 |
+| 没有 Key 的构建 | 界面照常构建，地图提示未配置 Key，其余功能不受影响 |
+| 本地开发 | 白名单只填了线上域名，`localhost` 会报 `INVALID_USER_DOMAIN`；要本地用地图，另建一个白名单留空的开发 Key（见 [docs/map-setup.md](docs/map-setup.md) 第 6 节） |
+
 ## 进度说明
 
 E 的新版界面、C 的真实视觉观察、B 的 v8 资料库、定位与地图选点均已接入；D 的编排与校验仍作为底层模块保留。端到端自动化测试与正式评测集仍在补。每个岗位在独立分支提交 PR，A 审核接口，F 负责回归。
